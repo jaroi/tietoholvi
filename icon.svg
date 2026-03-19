@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#1a1b2e"/>
+  <rect x="56" y="80" width="80" height="72" rx="8" fill="none" stroke="#4fc3f7" stroke-width="6"/>
+  <path d="M72 80V60a24 24 0 0 1 48 0v20" fill="none" stroke="#4fc3f7" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="96" cy="112" r="8" fill="#4fc3f7"/>
+  <rect x="93" y="116" width="6" height="16" rx="3" fill="#4fc3f7"/>
+  <text x="96" y="28" font-size="11" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" fill="#4fc3f7" letter-spacing="1">ESYS</text>
+</svg>

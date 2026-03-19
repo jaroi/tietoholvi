@@ -1,0 +1,21 @@
+{
+  "name": "ESYS Tietoholvi",
+  "short_name": "Tietoholvi",
+  "description": "Turvallinen salasanojen ja laitetietojen hallinta",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1a1b2e",
+  "theme_color": "#1a1b2e",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
