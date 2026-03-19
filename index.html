@@ -1630,7 +1630,7 @@ CREATE TABLE IF NOT EXISTS projekti_henkilo (
   FOREIGN KEY(henkilo_id) REFERENCES henkilo(id)
 );`;
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 15;
 
 const MIGRATIONS = [
   // Versio 1: Alkuperäinen schema (asiakas, projekti, kohde, tunniste, meta)
@@ -1687,9 +1687,16 @@ function migrateDb() {
         console.log('Migraatio v'+m.version+' ajettu');
         migrated = true;
       } catch(e) {
-        console.error('Migraatio v'+m.version+' epaonnistui:', e);
-        toast('Schema-paivitys v'+m.version+' epaonnistui: '+e.message, 'error');
-        return; // Pysäytä migraatiot virheeseen
+        // ALTER TABLE ADD COLUMN voi epäonnistua jos sarake on jo olemassa — ohita turvallisesti
+        if (e.message && e.message.indexOf('duplicate column') >= 0) {
+          console.log('Migraatio v'+m.version+': sarake oli jo olemassa, ohitetaan');
+          db.run("INSERT OR REPLACE INTO meta(avain,arvo) VALUES('schema_version',?)", [String(m.version)]);
+          migrated = true;
+        } else {
+          console.error('Migraatio v'+m.version+' epaonnistui:', e);
+          toast('Schema-paivitys v'+m.version+' epaonnistui: '+e.message, 'error');
+          return; // Pysäytä migraatiot virheeseen
+        }
       }
     }
   }
