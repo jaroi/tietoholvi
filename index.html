@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 19.3.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 20.3.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -901,7 +901,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .cred-type-icon .material-icons { font-size: 16px; vertical-align: middle; }
     .btn .material-icons { font-size: 16px; vertical-align: middle; }
     .empty-state .icon .material-icons { font-size: 48px; }
+    .kohde-title-wrap { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+    .kohde-title-row { display: flex; align-items: baseline; gap: 0; flex-wrap: wrap; }
     .kohde-title { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+    .kohde-mfg-sep { color: var(--text-dim); font-size: 13px; margin: 0 4px; }
+    .kohde-subtitle { font-size: 13px; color: var(--text-dim); }
+    .kohde-detail-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
     .kohde-meta { font-size: 12px; color: var(--text-dim); font-family: 'Consolas', monospace; margin-left: 8px; display: inline-flex; align-items: center; gap: 2px; }
     .kohde-meta-copy { display:inline-flex; align-items:center; opacity:0.3; transition:opacity 0.15s; cursor:pointer; }
     .kohde-meta-copy .material-icons { font-size:14px; }
@@ -910,11 +915,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .kohde-desc { font-size: 12px; color: var(--text-muted); margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
     .kohde-extra-info { font-size: 12px; color: var(--text-muted); padding: 4px 16px 8px 70px; border-top: 1px solid var(--border); background: var(--bg-main); }
     .kohde-type { font-size: 11px; color: var(--text-muted); background: var(--border); padding: 1px 8px; border-radius: 10px; }
-    .kohde-mfg { font-size: 11px; color: var(--text-dim); padding: 1px 6px; background: rgba(74,122,245,0.1); border-radius: 4px; margin-left: 4px; }
+    .kohde-mfg { font-size: 11px; color: var(--accent); padding: 3px 10px; background: rgba(99,140,255,0.15); border-radius: 4px; margin-left: 4px; font-weight: 500; border: 1px solid rgba(99,140,255,0.25); }
     .kohde-spacer { flex: 1; }
     /* Kompakti näkymä: piilota yksityiskohdat kun kohde suljettu */
     .kohde-node:not(.expanded) .kohde-type,
-    .kohde-node:not(.expanded) .kohde-mfg,
     .kohde-node:not(.expanded) .kohde-ai-btn,
     .kohde-node:not(.expanded) > .kohde-extra-info,
     .kohde-node:not(.expanded) > .kohde-ai-info,
@@ -998,11 +1002,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       letter-spacing: 0.5px; margin-bottom: 12px;
     }
     .proj-info-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
+      display: flex; flex-direction: column; gap: 6px;
     }
-    .proj-info-item label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.3px; display: block; }
-    .proj-info-item .val { font-size: 15px; color: var(--text-primary); margin-top: 2px; }
+    .proj-info-row { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+    .proj-info-row.proj-info-columns { gap: 2px 32px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 2px solid var(--border); }
+    .proj-info-columns .proj-info-item { flex-direction: column; gap: 2px; }
+    .proj-info-columns .proj-info-item .val { font-size: 16px; font-weight: 600; }
+    .proj-info-item { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+    .proj-info-item label { font-size: 11px; color: rgba(99,140,255,0.6); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; flex-shrink: 0; }
+    .proj-info-item.proj-info-kv label { width: 110px; min-width: 110px; }
+    .proj-info-item .val { font-size: 14px; color: var(--text-primary); }
 
     /* ═══ MODAL ═══ */
     .modal-overlay {
@@ -1276,7 +1285,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .henkilo-info { flex:1; min-width:0; }
     .henkilo-name { font-weight:600; color:var(--text-primary); font-size:14px; }
     .henkilo-detail { font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .henkilo-role { font-size:11px; color:var(--accent); background:var(--accent-glow); padding:2px 8px; border-radius:4px; white-space:nowrap; }
+    .henkilo-role { font-size:11px; color:var(--accent); background:rgba(99,140,255,0.15); padding:3px 10px; border-radius:4px; white-space:nowrap; font-weight:500; border:1px solid rgba(99,140,255,0.25); }
     .henkilo-link-item { transition:background 0.15s; }
     .henkilo-link-item:hover { background:var(--bg-hover); }
     .henkilo-link-item.selected { background:var(--primary) !important; color:white !important; border-left:4px solid white; }
@@ -2303,21 +2312,26 @@ function renderProject(p) {
   html += '<div class="proj-info-card">';
   html += '<div class="proj-info-title">Projektin tiedot</div>';
   html += '<div class="proj-info-grid">';
-  // Rivi 1: Asiakas, Tunnus, Osoite
+  // Rivi 1: Asiakas, Tunnus (sarakemuotoilu, label yläpuolella)
+  html += '<div class="proj-info-row proj-info-columns">';
   if (p.asiakas_nimi) html += '<div class="proj-info-item"><label>Asiakas</label><div class="val">'+esc(p.asiakas_nimi)+'</div></div>';
   if (p.tunnus) html += '<div class="proj-info-item"><label>Tunnus</label><div class="val mono">'+esc(p.tunnus)+'</div></div>';
-  if (p.asiakas_osoite) html += '<div class="proj-info-item"><label>Osoite</label><div class="val">'+esc(p.asiakas_osoite)+'</div></div>';
-  // Rivi 2: Yhteyshenkilö, Puhelin, Sähköposti
-  if (p.yhteyshenkilo) html += '<div class="proj-info-item"><label>Yhteyshenkilö</label><div class="val">'+esc(p.yhteyshenkilo)+'</div></div>';
-  if (p.puhelin) html += '<div class="proj-info-item"><label>Puhelin</label><div class="val">'+esc(p.puhelin)+'</div></div>';
-  if (p.sahkoposti) html += '<div class="proj-info-item"><label>Sähköposti</label><div class="val">'+esc(p.sahkoposti)+'</div></div>';
-  // Rivi 3: WWW
-  if (p.asiakas_www) html += '<div class="proj-info-item" style="grid-column:1/-1"><label>WWW</label><div class="val"><a href="'+(p.asiakas_www.match(/^https?:\/\//) ? esc(p.asiakas_www) : 'https://'+esc(p.asiakas_www))+'" target="_blank" rel="noopener" style="color:var(--accent)">'+esc(p.asiakas_www)+'</a></div></div>';
-  if (p.polku) html += '<div class="proj-info-item" style="grid-column:1/-1"><label>Projektipolku</label><div class="val" style="display:flex;align-items:center;gap:8px"><span class="mono" style="word-break:break-all">'+esc(p.polku)+'</span><button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent);toast(\'Polku kopioitu\',\'success\')" title="Kopioi polku" style="flex-shrink:0;padding:2px 4px">'+mi('content_copy')+'</button></div></div>';
-  if (p.kuvaus) html += '<div class="proj-info-item" style="grid-column:1/-1"><label>Kuvaus</label><div class="val">'+esc(p.kuvaus)+'</div></div>';
+  html += '</div>';
+  // Loput avain-arvo -pareina, kiinteä label-leveys
+  if (p.asiakas_osoite) html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv"><label>Osoite</label><div class="val">'+esc(p.asiakas_osoite)+'</div></div></div>';
+  if (p.yhteyshenkilo) {
+    var yhParts = [esc(p.yhteyshenkilo)];
+    if (p.puhelin) yhParts.push('<a href="tel:'+esc(p.puhelin.replace(/\s/g,''))+'" style="color:var(--text-primary)">'+esc(p.puhelin)+'</a>');
+    if (p.sahkoposti) yhParts.push('<a href="mailto:'+esc(p.sahkoposti)+'" style="color:var(--accent)">'+esc(p.sahkoposti)+'</a>');
+    var yh = yhParts.join(' &nbsp;·&nbsp; ');
+    html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv"><label>Yhteyshenkilö</label><div class="val">'+yh+'</div></div></div>';
+  }
+  if (p.asiakas_www) html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv" style="min-width:0"><label>WWW</label><div class="val" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><a href="'+(p.asiakas_www.match(/^https?:\/\//) ? esc(p.asiakas_www) : 'https://'+esc(p.asiakas_www))+'" target="_blank" rel="noopener" style="color:var(--accent)" title="'+esc(p.asiakas_www)+'">'+esc(p.asiakas_www)+'</a></div></div></div>';
+  if (p.polku) html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv" style="min-width:0"><label>Polku</label><div class="val" style="display:flex;align-items:center;gap:8px;overflow:hidden"><span class="mono" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(p.polku)+'">'+esc(p.polku)+'</span><button class="btn btn-ghost btn-sm" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent);toast(\'Polku kopioitu\',\'success\')" title="Kopioi polku" style="flex-shrink:0;padding:2px 4px">'+mi('content_copy')+'</button></div></div></div>';
+  if (p.kuvaus) html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv"><label>Kuvaus</label><div class="val">'+esc(p.kuvaus)+'</div></div></div>';
   if (p.lisatiedot) {
     const lt = p.lisatiedot.length > 200 ? p.lisatiedot.substring(0,200) + '...' : p.lisatiedot;
-    html += '<div class="proj-info-item" style="grid-column:1/-1"><label>Lisatiedot</label><div class="val" style="font-size:14px;color:var(--text-secondary)">'+esc(lt)+'</div></div>';
+    html += '<div class="proj-info-row"><div class="proj-info-item proj-info-kv"><label>Lisätiedot</label><div class="val" style="color:var(--text-secondary)">'+esc(lt)+'</div></div></div>';
   }
   html += '</div></div>';
 
@@ -2428,13 +2442,19 @@ function renderKohdeNode(k) {
   html += '<div class="kohde-header" onclick="toggleKohde(\''+k.id+'\')">';
   html += '<span class="kohde-toggle'+(isOpen?' open':'')+'">&#9654;</span>';
   html += '<span class="kohde-icon">'+icon+'</span>';
-  html += '<span class="kohde-title">'+esc(k.nimi)+'</span>';
-  if (k.osoite) html += '<span class="kohde-meta">'+esc(k.osoite)+'<span class="kohde-meta-copy" onclick="event.stopPropagation();copyOsoite(\''+k.osoite.replace(/'/g,"\\'")+'\')" title="Kopioi osoite">'+mi('content_copy')+'</span></span>';
-  if (k.kuvaus) html += '<span class="kohde-desc">'+esc(k.kuvaus)+'</span>';
+  var mfg = [k.valmistaja, k.malli].filter(Boolean).join(' ');
+  html += '<span class="kohde-title-wrap">';
+  html += '<span class="kohde-title-row"><span class="kohde-title">'+esc(k.nimi)+'</span>'+(mfg ? '<span class="kohde-mfg-sep"> · </span><span class="kohde-subtitle">'+esc(mfg)+'</span>' : '')+'</span>';
+  var hasRow2 = k.kuvaus || k.osoite;
+  if (hasRow2) {
+    html += '<span class="kohde-detail-row">';
+    if (k.osoite) html += '<span class="kohde-meta">'+esc(k.osoite)+'<span class="kohde-meta-copy" onclick="event.stopPropagation();copyOsoite(\''+k.osoite.replace(/'/g,"\\'")+'\')" title="Kopioi osoite">'+mi('content_copy')+'</span></span>';
+    if (k.kuvaus) html += '<span class="kohde-desc">'+esc(k.kuvaus)+'</span>';
+    html += '</span>';
+  }
+  html += '</span>';
   html += '<span class="kohde-spacer"></span>';
   html += '<span class="kohde-type">'+esc(k.tyyppi||'muu')+'</span>';
-  if (k.valmistaja) html += '<span class="kohde-mfg">'+esc(k.valmistaja)+(k.malli?' '+esc(k.malli):'')+'</span>';
-  else if (k.malli) html += '<span class="kohde-mfg">'+esc(k.malli)+'</span>';
   if (k.ai_tiedot) html += '<span class="kohde-ai-btn" onclick="event.stopPropagation();var el=document.getElementById(\'ai-info-'+k.id+'\');if(el){el.classList.toggle(\'hidden\')}" title="AI-tiedot" style="font-size:14px;color:var(--accent);cursor:pointer;opacity:0.5;margin-left:4px;display:inline-flex;align-items:center">'+mi('auto_awesome')+'</span>';
   const credCount = tunnisteet.length + children.reduce((s,c) => s + query("SELECT COUNT(*) as c FROM tunniste WHERE kohde_id=?",[c.id])[0].c, 0);
   if (credCount) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:4px;display:inline-flex;align-items:center;gap:2px">'+credCount+' <span class="material-icons" style="font-size:14px">key</span></span>';
@@ -3864,17 +3884,20 @@ function saveMerkintaModal(id) {
 /* ═══ HENKILÖ ═══ */
 function renderHenkiloCard(h, projId) {
   var html = '<div class="henkilo-card">';
-  html += '<span class="material-icons" style="font-size:28px;color:var(--text-dim)">person</span>';
   html += '<div class="henkilo-info">';
-  html += '<div class="henkilo-name">'+esc(h.nimi)+'</div>';
-  var details = [h.nimike, h.organisaatio].filter(Boolean).join(' / ');
-  if (details) html += '<div class="henkilo-detail">'+esc(details)+'</div>';
-  var contacts = [];
-  if (h.puhelin) contacts.push(mi('phone')+' '+esc(h.puhelin));
-  if (h.sahkoposti) contacts.push(mi('email')+' '+esc(h.sahkoposti));
-  if (contacts.length) html += '<div class="henkilo-detail">'+contacts.join(' &nbsp; ')+'</div>';
+  // Rivi 1: Nimi · Organisaatio · Nimike
+  var nameParts = [esc(h.nimi)];
+  if (h.organisaatio) nameParts.push(esc(h.organisaatio));
+  if (h.nimike) nameParts.push('<span style="font-weight:400">'+esc(h.nimike)+'</span>');
+  html += '<div class="henkilo-name">'+nameParts.join(' <span style="color:var(--text-dim)">·</span> ')+'</div>';
+  // Rivi 2: Puhelin + Sähköposti + Rooli
+  var row2 = [];
+  if (h.puhelin) row2.push(mi('phone')+' <a href="tel:'+esc(h.puhelin.replace(/\s/g,''))+'" style="color:var(--text-primary)" onclick="event.stopPropagation()">'+esc(h.puhelin)+'</a>');
+  if (h.sahkoposti) row2.push(mi('email')+' <a href="mailto:'+esc(h.sahkoposti)+'" style="color:var(--accent)" onclick="event.stopPropagation()">'+esc(h.sahkoposti)+'</a>');
+  if (h.rooli) row2.push('<span style="color:var(--text-dim);font-size:12px">'+esc(h.rooli)+'</span>');
+  if (row2.length) html += '<div class="henkilo-detail">'+row2.join(' &nbsp; ')+'</div>';
+  if (h.lisatiedot) html += '<div class="henkilo-detail" style="color:var(--text-dim);font-style:italic">'+esc(h.lisatiedot)+'</div>';
   html += '</div>';
-  if (h.rooli) html += '<span class="henkilo-role">'+esc(h.rooli)+'</span>';
   var hPrintOn = h.ph_tulosta !== 0 && h.ph_tulosta !== '0';
   html += '<span class="merkinta-print-toggle '+(hPrintOn?'on':'off')+'" onclick="toggleHenkiloPrint(\''+h.ph_id+'\')" title="'+(hPrintOn?'Mukana PDF-raportissa — klikkaa piilottaaksesi':'Ei mukana PDF-raportissa — klikkaa lisätäksesi')+'">'+mi('print')+'</span>';
   html += '<span style="display:flex;gap:2px">';
