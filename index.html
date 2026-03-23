@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 20.3.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 23.3.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -1755,6 +1755,29 @@ function togglePinProject(projId) {
   setMeta('pinned_projects', JSON.stringify(pinned));
   renderSidebar();
 }
+function getPinnedMerkinnat() {
+  try { return JSON.parse(getMeta('pinned_merkinnat') || '[]'); } catch(e) { return []; }
+}
+function togglePinMerkinta(id) {
+  var pinned = getPinnedMerkinnat();
+  var idx = pinned.indexOf(id);
+  if (idx >= 0) pinned.splice(idx, 1); else pinned.push(id);
+  setMeta('pinned_merkinnat', JSON.stringify(pinned));
+  scheduleSave();
+  renderContent();
+}
+function movePinnedMerkinta(id, dir) {
+  var pinned = getPinnedMerkinnat();
+  var idx = pinned.indexOf(id);
+  if (idx < 0) return;
+  var newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= pinned.length) return;
+  pinned.splice(idx, 1);
+  pinned.splice(newIdx, 0, id);
+  setMeta('pinned_merkinnat', JSON.stringify(pinned));
+  scheduleSave();
+  renderContent();
+}
 
 /* ═══ INDEXEDDB ═══ */
 let saveTimer = null;
@@ -2381,7 +2404,9 @@ function renderProject(p) {
   }
 
   // Merkinnät section
-  const allMerkinnat = query("SELECT * FROM merkinta WHERE projekti_id=? ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
+  const _allMerkRaw = query("SELECT * FROM merkinta WHERE projekti_id=? ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
+  const _merkPinned = getPinnedMerkinnat();
+  const allMerkinnat = _merkPinned.map(function(id){ return _allMerkRaw.find(function(m){ return m.id===id; }); }).filter(Boolean).concat(_allMerkRaw.filter(function(m){ return _merkPinned.indexOf(m.id) < 0; }));
   const merkCollapsed = sectionCollapsed['merkinnat'];
   // AI Summary
   html += '<div id="ai-summary-area-'+p.id+'">'+renderAiSummary(p.id)+'</div>';
@@ -3160,8 +3185,10 @@ function renderMerkintaCard(m, showProj, refNum) {
   html += '<div class="merkinta-card-header">';
   if (refNum) html += '<span class="merkinta-ref-num">['+refNum+']</span>';
   html += '<span class="merkinta-card-collapse'+(isCollapsed?' collapsed':'')+'" onclick="event.stopPropagation();toggleMerkintaCard(\''+m.id+'\')">'+mi('expand_more')+'</span>';
+  const _isPinned = getPinnedMerkinnat().indexOf(m.id) >= 0;
   const icon = tila==='valmis' && kuittausLabels ? mi('check_circle') : merkintaIcon(m.tyyppi);
   html += '<span class="merkinta-type-icon" style="color:'+(tila==='valmis'&&kuittausLabels?'var(--success)':color)+'">'+icon+'</span>';
+  if (_isPinned) html += '<span class="material-icons" style="font-size:13px;color:var(--accent);margin-right:2px" title="Kiinnitetty">push_pin</span>';
   html += '<span class="merkinta-card-title">'+esc(m.otsikko)+'</span>';
   if (isKorjattu && kuittausLabels) {
     html += '<span class="merkinta-korjattu-badge">'+mi('check_circle')+' '+kuittausLabels.badge+' '+esc(m.korjattu.slice(0,10))+'</span>';
@@ -3180,6 +3207,12 @@ function renderMerkintaCard(m, showProj, refNum) {
   html += '<span class="kohde-menu-wrap" onclick="event.stopPropagation()">';
   html += '<button class="btn btn-ghost btn-sm kohde-menu-btn" onclick="toggleKohdeMenu(\'m-'+m.id+'\')" title="Toiminnot">'+mi('more_vert')+'</button>';
   html += '<div class="kohde-menu" id="kohde-menu-m-'+m.id+'">';
+  var _mPinned = getPinnedMerkinnat().indexOf(m.id) >= 0;
+  html += '<a onclick="closeKohdeMenu();togglePinMerkinta(\''+m.id+'\')">'+mi('push_pin')+' '+(_mPinned?'Poista kiinnitys':'Kiinnitä ylös')+'</a>';
+  if (_mPinned) {
+    html += '<a onclick="closeKohdeMenu();movePinnedMerkinta(\''+m.id+'\',-1)">'+mi('keyboard_arrow_up')+' Siirrä ylös</a>';
+    html += '<a onclick="closeKohdeMenu();movePinnedMerkinta(\''+m.id+'\',1)">'+mi('keyboard_arrow_down')+' Siirrä alas</a>';
+  }
   html += '<a onclick="closeKohdeMenu();editMerkintaInline(\''+m.id+'\')">'+mi('edit')+' Muokkaa</a>';
   if (kuittausLabels && !isKorjattu) {
     html += '<a onclick="closeKohdeMenu();merkitseKorjatuksi(\''+m.id+'\')" style="color:var(--success)">'+mi('check_circle')+' '+kuittausLabels.btn+'</a>';
@@ -3353,7 +3386,9 @@ function renderMerkinnat() {
     params.push(like, like, like);
   }
   const order = merkintaSortDir === 'asc' ? 'ASC' : 'DESC';
-  const rows = query("SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE "+where+" ORDER BY COALESCE(m.paivamaara, m.luotu) "+order+", m.luotu "+order+" LIMIT 200", params);
+  const _rowsRaw = query("SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE "+where+" ORDER BY COALESCE(m.paivamaara, m.luotu) "+order+", m.luotu "+order+" LIMIT 200", params);
+  const _tlPinned = getPinnedMerkinnat();
+  const rows = _tlPinned.map(function(id){ return _rowsRaw.find(function(m){ return m.id===id; }); }).filter(Boolean).concat(_rowsRaw.filter(function(m){ return _tlPinned.indexOf(m.id) < 0; }));
 
   let html = renderMerkintaToolbar();
   // Tag cloud
