@@ -1390,7 +1390,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   <div class="login-box">
     <div style="margin-bottom:12px"><span class="material-icons" style="font-size:48px;color:var(--accent)">lock</span></div>
     <h1>ESYS Tietoholvi</h1>
-    <p class="subtitle">Tunnistetietojen hallinta</p>
+    <p class="subtitle">Tunnistetietojen hallinta · <span id="version-label"></span></p>
     <div id="login-setup" class="hidden">
       <p class="setup-info">Luo master-salasana tietoholvin suojaamiseksi.<br>Muista salasana &mdash; sita ei voi palauttaa!</p>
       <input type="password" id="setup-pw1" placeholder="Master-salasana">
@@ -1500,6 +1500,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
+const APP_VERSION = '1.0.0';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
@@ -1902,6 +1903,7 @@ async function init() {
   const data = await loadFromIDB();
   initDb(data);
   document.getElementById('login-loading').style.display='none';
+  document.getElementById('version-label').textContent='v'+APP_VERSION;
   if(getMeta('master_pw_hash')) {
     document.getElementById('login-form').classList.remove('hidden');
     document.getElementById('login-pw').focus();
