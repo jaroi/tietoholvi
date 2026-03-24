@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.5';
+var APP_VERSION = '1.7.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -579,7 +579,7 @@ function saveNewMerkinta(){
 /* ═══ MOBILE SYNC ═══ */
 function getMobileMerkinnat(){try{return JSON.parse(localStorage.getItem('tietoholvi_mobile_ids')||'[]');}catch(e){return[];}}
 function trackMobileMerkinta(id){var ids=getMobileMerkinnat();if(ids.indexOf(id)<0){ids.push(id);localStorage.setItem('tietoholvi_mobile_ids',JSON.stringify(ids));}}
-async function exportMobileMerkinnat(){
+function exportMobileMerkinnat(){
   var ids=getMobileMerkinnat();
   if(!ids.length){toast('Ei vietäviä merkintöjä','info');return;}
   var merkinnat=[];
@@ -597,36 +597,39 @@ async function exportMobileMerkinnat(){
   };
   var jsonStr=JSON.stringify(data,null,2);
   var blob=new Blob([jsonStr],{type:'application/json'});
-  var shared=false;
-  // Kokeile Web Share API:a (mobiili jako-valikko)
+  var file=new File([blob],'tietoholvi-mobile-sync.json',{type:'application/json'});
+  // Kokeile Web Share API:a — SYNKRONISESTI user gesture -ketjussa
   if(navigator.share){
-    try{
-      var file=new File([blob],'tietoholvi-mobile-sync.json',{type:'application/json'});
-      await navigator.share({title:'Tietoholvi merkinnät',files:[file]});
-      shared=true;
-    }catch(e){
-      toast('Share files error: '+e.name+': '+e.message,'info');
-      if(e.name==='AbortError'){return;}
-      try{
-        await navigator.share({title:'Tietoholvi merkinnät',text:jsonStr});
-        shared=true;
-      }catch(e2){
-        toast('Share text error: '+e2.name+': '+e2.message,'info');
+    navigator.share({title:'Tietoholvi merkinnät',files:[file]}).then(function(){
+      localStorage.setItem('tietoholvi_mobile_ids','[]');
+      updateExportBadge();
+      toast(merkinnat.length+' merkintää jaettu','success');
+    }).catch(function(e){
+      if(e.name==='AbortError')return;
+      // Files ei toimi — kokeile tekstinä
+      navigator.share({title:'Tietoholvi merkinnät',text:jsonStr}).then(function(){
+        localStorage.setItem('tietoholvi_mobile_ids','[]');
+        updateExportBadge();
+        toast(merkinnat.length+' merkintää jaettu','success');
+      }).catch(function(e2){
         if(e2.name==='AbortError')return;
-      }
-    }
-  } else { toast('navigator.share not available','info'); }
-  // Fallback: lataa tiedostona
-  if(!shared){
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='tietoholvi-mobile-sync.json';
-    a.click();
-    URL.revokeObjectURL(a.href);
+        // Fallback: lataa tiedostona
+        downloadFallback(blob, merkinnat.length);
+      });
+    });
+  } else {
+    downloadFallback(blob, merkinnat.length);
   }
+}
+function downloadFallback(blob, count){
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tietoholvi-mobile-sync.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
   localStorage.setItem('tietoholvi_mobile_ids','[]');
   updateExportBadge();
-  toast(merkinnat.length+' merkintää '+(shared?'jaettu':'viety'),'success');
+  toast(count+' merkintää viety tiedostoon','success');
 }
 function clearExportedMerkinnat(){
   if(!confirm('Tyhjennetäänkö vientilista? Tee tämä vasta kun olet tuonut merkinnät desktopille.')) return;
