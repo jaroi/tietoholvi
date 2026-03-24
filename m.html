@@ -76,7 +76,11 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 .merk-card-title { flex:1; font-size:14px; font-weight:500; }
 .merk-card-date { font-size:11px; color:var(--text-dim); }
 .merk-card-body { font-size:13px; color:var(--text-secondary); margin-top:8px; line-height:1.5; }
-.merk-card-body img { max-width:100%; border-radius:6px; margin:4px 0; }
+.merk-card-body img { max-width:100%; border-radius:6px; margin:4px 0; cursor:pointer; }
+/* Fullscreen image viewer */
+.img-viewer { position:fixed; top:0; left:0; right:0; bottom:0; z-index:9999; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; padding:16px; }
+.img-viewer img { max-width:100%; max-height:100%; object-fit:contain; border-radius:4px; }
+.img-viewer-close { position:absolute; top:12px; right:12px; background:rgba(255,255,255,0.2); border:none; color:#fff; width:40px; height:40px; border-radius:50%; font-size:24px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .merk-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
 .merk-tag { font-size:11px; background:rgba(74,122,245,0.12); color:var(--accent); padding:2px 8px; border-radius:10px; }
 .tila-badge { font-size:11px; padding:2px 8px; border-radius:10px; }
@@ -185,7 +189,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.2.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -596,6 +600,21 @@ function doSearch(){
   if(!h) h='<div class="empty" style="padding-top:20px">Ei tuloksia</div>';
   document.getElementById('search-results').innerHTML=h;
 }
+
+/* ═══ IMAGE VIEWER ═══ */
+function openImageViewer(src) {
+  var d = document.createElement('div');
+  d.className = 'img-viewer';
+  d.innerHTML = '<button class="img-viewer-close" onclick="this.parentElement.remove()">×</button><img src="' + src + '">';
+  d.addEventListener('click', function(e) { if (e.target === d) d.remove(); });
+  document.body.appendChild(d);
+}
+document.addEventListener('click', function(e) {
+  if (e.target.tagName === 'IMG' && e.target.closest('.merk-card-body')) {
+    e.preventDefault();
+    openImageViewer(e.target.src);
+  }
+});
 
 /* ═══ HISTORY / BACK BUTTON ═══ */
 var _navStack = []; // oma navigaatiopino
