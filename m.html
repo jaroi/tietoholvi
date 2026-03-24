@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.5.0';
+var APP_VERSION = '1.5.1';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -601,6 +601,8 @@ function exportMobileMerkinnat(){
   a.download='tietoholvi-mobile-sync.json';
   a.click();
   URL.revokeObjectURL(a.href);
+  localStorage.setItem('tietoholvi_mobile_ids','[]');
+  updateExportBadge();
   toast(merkinnat.length+' merkintää viety','success');
 }
 function clearExportedMerkinnat(){
