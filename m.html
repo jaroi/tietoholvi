@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.0';
+var APP_VERSION = '1.6.1';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -597,26 +597,33 @@ async function exportMobileMerkinnat(){
   };
   var jsonStr=JSON.stringify(data,null,2);
   var blob=new Blob([jsonStr],{type:'application/json'});
-  var file=new File([blob],'tietoholvi-mobile-sync.json',{type:'application/json'});
-  // Kokeile ensin Web Share API:a (mobiili jako-valikko)
-  if(navigator.canShare&&navigator.canShare({files:[file]})){
+  var shared=false;
+  // Kokeile Web Share API:a (mobiili jako-valikko)
+  if(navigator.share){
     try{
-      await navigator.share({title:'Tietoholvi mobiilimerkinnät',text:merkinnat.length+' merkintää',files:[file]});
-      localStorage.setItem('tietoholvi_mobile_ids','[]');
-      updateExportBadge();
-      toast(merkinnat.length+' merkintää jaettu','success');
-      return;
-    }catch(e){if(e.name==='AbortError')return;/* käyttäjä peruutti */}
+      var file=new File([blob],'tietoholvi-mobile-sync.json',{type:'application/json'});
+      await navigator.share({title:'Tietoholvi merkinnät',files:[file]});
+      shared=true;
+    }catch(e){
+      if(e.name==='AbortError'){return;}
+      // Tiedostojako ei tuettu — kokeile pelkkää tekstiä
+      try{
+        await navigator.share({title:'Tietoholvi merkinnät',text:jsonStr});
+        shared=true;
+      }catch(e2){if(e2.name==='AbortError')return;}
+    }
   }
   // Fallback: lataa tiedostona
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download='tietoholvi-mobile-sync.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  if(!shared){
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='tietoholvi-mobile-sync.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
   localStorage.setItem('tietoholvi_mobile_ids','[]');
   updateExportBadge();
-  toast(merkinnat.length+' merkintää viety','success');
+  toast(merkinnat.length+' merkintää '+(shared?'jaettu':'viety'),'success');
 }
 function clearExportedMerkinnat(){
   if(!confirm('Tyhjennetäänkö vientilista? Tee tämä vasta kun olet tuonut merkinnät desktopille.')) return;
