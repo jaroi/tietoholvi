@@ -582,8 +582,35 @@ function doSearch(){
   document.getElementById('search-results').innerHTML=h;
 }
 
+/* ═══ HISTORY / BACK BUTTON ═══ */
+function pushState(state){history.pushState(state,'');}
+window.addEventListener('popstate',function(e){
+  var s=e.state;
+  if(!s){
+    // Ei tilaa — ollaan pohjalla, estetään poistuminen pushaamalla uusi tila
+    if(selectedProjectId){pushState({view:'projects'});showProjectSelector();}
+    return;
+  }
+  if(s.view==='projects'){selectedProjectId=null;showProjectSelector();return;}
+  if(s.view==='deviceList'){deviceDetailId=null;currentTab='laitteet';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='laitteet'));renderView();return;}
+  if(s.view==='merkinnat'){currentTab='merkinnat';deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='merkinnat'));renderView();return;}
+  if(s.view==='haku'){currentTab='haku';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='haku'));renderView();return;}
+});
+// Override navigointifunktiot pushaamaan historiaan
+var _origSelectProject=selectProject;
+selectProject=function(id){_origSelectProject(id);pushState({view:'deviceList'});};
+var _origShowDevice=showDevice;
+showDevice=function(id){_origShowDevice(id);pushState({view:'deviceDetail',id:id});};
+var _origShowProjectSelector=showProjectSelector;
+showProjectSelector=function(){_origShowProjectSelector();pushState({view:'projects'});};
+var _origSwitchTab=switchTab;
+switchTab=function(tab){_origSwitchTab(tab);pushState({view:tab});};
+var _origShowNewMerkinta=showNewMerkinta;
+showNewMerkinta=function(){_origShowNewMerkinta();pushState({view:'newMerkinta'});};
+
 /* ═══ INIT ═══ */
 window.addEventListener('beforeunload',function(e){if(dbDirty){e.preventDefault();e.returnValue='';}});
+history.replaceState({view:'init'},'');
 init();
 </script>
 </body>
