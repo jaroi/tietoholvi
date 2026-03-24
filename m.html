@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.5.1';
+var APP_VERSION = '1.6.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -579,7 +579,7 @@ function saveNewMerkinta(){
 /* ═══ MOBILE SYNC ═══ */
 function getMobileMerkinnat(){try{return JSON.parse(localStorage.getItem('tietoholvi_mobile_ids')||'[]');}catch(e){return[];}}
 function trackMobileMerkinta(id){var ids=getMobileMerkinnat();if(ids.indexOf(id)<0){ids.push(id);localStorage.setItem('tietoholvi_mobile_ids',JSON.stringify(ids));}}
-function exportMobileMerkinnat(){
+async function exportMobileMerkinnat(){
   var ids=getMobileMerkinnat();
   if(!ids.length){toast('Ei vietäviä merkintöjä','info');return;}
   var merkinnat=[];
@@ -595,7 +595,20 @@ function exportMobileMerkinnat(){
     count:merkinnat.length,
     merkinnat:merkinnat
   };
-  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var jsonStr=JSON.stringify(data,null,2);
+  var blob=new Blob([jsonStr],{type:'application/json'});
+  var file=new File([blob],'tietoholvi-mobile-sync.json',{type:'application/json'});
+  // Kokeile ensin Web Share API:a (mobiili jako-valikko)
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({title:'Tietoholvi mobiilimerkinnät',text:merkinnat.length+' merkintää',files:[file]});
+      localStorage.setItem('tietoholvi_mobile_ids','[]');
+      updateExportBadge();
+      toast(merkinnat.length+' merkintää jaettu','success');
+      return;
+    }catch(e){if(e.name==='AbortError')return;/* käyttäjä peruutti */}
+  }
+  // Fallback: lataa tiedostona
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download='tietoholvi-mobile-sync.json';
