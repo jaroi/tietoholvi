@@ -1490,7 +1490,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
 <div id="toast-container"></div>
 <input type="file" id="file-db-input" accept=".db" style="display:none" onchange="handleDbFileLoad(event)">
-<input type="file" id="file-mobile-sync-input" accept=".json" style="display:none" onchange="handleMobileSyncImport(event)">
+<input type="file" id="file-mobile-sync-input" accept=".thsync,.json" style="display:none" onchange="handleMobileSyncImport(event)">
 <input type="file" id="file-xlsx-input" accept=".xlsx,.xls" style="display:none" onchange="handleXlsxImport(event)">
 <input type="file" id="file-asiakas-input" accept=".xlsx,.xls" style="display:none" onchange="handleAsiakasImport(event)">
 <input type="file" id="file-bulk-import" accept=".xlsx,.xls" style="display:none" onchange="handleBulkImport(event)">
@@ -1501,7 +1501,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.8.0';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
