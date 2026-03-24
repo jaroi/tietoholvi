@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.9.0';
+var APP_VERSION = '1.9.1';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -731,19 +731,24 @@ function navBack() {
   if (prev.view === 'projects') {
     selectedProjectId = null;
     showProjectSelector();
-  } else if (prev.view === 'deviceList') {
+  } else if (prev.view === 'deviceDetail') {
     deviceDetailId = null;
     currentTab = 'laitteet';
     document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
     renderView();
-  } else if (prev.view === 'deviceDetail') {
+  } else if (prev.view === 'laitteet' || prev.view === 'deviceList') {
     deviceDetailId = null;
-    renderDeviceList();
+    currentTab = 'laitteet';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
+    renderView();
   } else if (prev.view === 'merkinnat') {
     currentTab = 'merkinnat';
+    deviceDetailId = null;
     document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='merkinnat'); });
     renderView();
-  } else if (prev.view === 'newMerkinta') {
+  } else if (prev.view === 'haku') {
+    currentTab = 'haku';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='haku'); });
     renderView();
   } else {
     renderView();
