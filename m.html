@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.3';
+var APP_VERSION = '1.6.4';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -199,7 +199,7 @@ function uuid() { if(crypto.randomUUID) return crypto.randomUUID(); return 'xxxx
 function now() { return new Date().toISOString(); }
 function esc(s) { if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function mi(n) { return '<span class="material-icons">'+n+'</span>'; }
-function toast(msg,type) { var d=document.createElement('div'); d.className='toast '+(type||'info'); d.textContent=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),type==='error'?10000:6000); }
+function toast(msg,type) { var d=document.createElement('div'); d.className='toast '+(type||'info'); d.textContent=msg; d.onclick=function(){d.remove();}; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),60000); }
 
 /* ═══ ENCRYPTION ═══ */
 async function deriveKey(password,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
