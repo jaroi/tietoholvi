@@ -124,10 +124,10 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 .back-btn { display:flex; align-items:center; gap:4px; color:var(--accent); font-size:14px; cursor:pointer; margin-bottom:12px; background:none; border:none; padding:4px 0; }
 /* Toast */
 .toast-container { position:fixed; top:56px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:6px; }
-.toast { padding:14px 20px; border-radius:8px; font-size:15px; animation:fadeIn .2s; max-width:90vw; word-break:break-word; }
-.toast.success { background:var(--success); color:#1a4731; }
-.toast.error { background:var(--error); color:#fff; }
-.toast.info { background:var(--info); color:#1a2a4a; }
+.toast { padding:20px; border-radius:8px; font-size:18px; font-weight:600; animation:fadeIn .2s; max-width:90vw; word-break:break-word; background:#fff; color:#000; border:3px solid #000; z-index:99999; }
+.toast.success { background:#fff; color:#000; border-color:#000; }
+.toast.error { background:#fff; color:#000; border-color:#000; }
+.toast.info { background:#fff; color:#000; border-color:#000; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
 /* Empty state */
 .empty { text-align:center; padding:40px 20px; color:var(--text-dim); }
@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.4';
+var APP_VERSION = '1.6.5';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
