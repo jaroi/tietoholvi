@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.8.0';
+var APP_VERSION = '1.9.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -659,7 +659,52 @@ function doSearch(){
 function openImageViewer(src) {
   var d = document.createElement('div');
   d.className = 'img-viewer';
-  d.innerHTML = '<button class="img-viewer-close" onclick="this.parentElement.remove()">×</button><img src="' + src + '">';
+  d.innerHTML = '<button class="img-viewer-close" onclick="this.parentElement.remove()">×</button><img src="' + src + '" style="touch-action:none">';
+  var img = d.querySelector('img');
+  var scale = 1, startDist = 0, startScale = 1, posX = 0, posY = 0, startX = 0, startY = 0, isDragging = false;
+  function dist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
+  function mid(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+  function applyTransform() { img.style.transform = 'translate(' + posX + 'px,' + posY + 'px) scale(' + scale + ')'; }
+  img.addEventListener('touchstart', function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      startDist = dist(e.touches);
+      startScale = scale;
+    } else if (e.touches.length === 1 && scale > 1) {
+      e.preventDefault();
+      isDragging = true;
+      startX = e.touches[0].clientX - posX;
+      startY = e.touches[0].clientY - posY;
+    }
+  }, { passive: false });
+  img.addEventListener('touchmove', function(e) {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      scale = Math.min(5, Math.max(1, startScale * (dist(e.touches) / startDist)));
+      if (scale <= 1) { posX = 0; posY = 0; }
+      applyTransform();
+    } else if (e.touches.length === 1 && isDragging && scale > 1) {
+      e.preventDefault();
+      posX = e.touches[0].clientX - startX;
+      posY = e.touches[0].clientY - startY;
+      applyTransform();
+    }
+  }, { passive: false });
+  img.addEventListener('touchend', function(e) {
+    isDragging = false;
+    if (e.touches.length < 2 && scale <= 1) { scale = 1; posX = 0; posY = 0; applyTransform(); }
+  });
+  // Tupla-napauta → zoom 3x tai reset
+  var lastTap = 0;
+  img.addEventListener('touchend', function(e) {
+    if (e.touches.length > 0) return;
+    var now = Date.now();
+    if (now - lastTap < 300) {
+      if (scale > 1) { scale = 1; posX = 0; posY = 0; } else { scale = 3; }
+      applyTransform();
+    }
+    lastTap = now;
+  });
   d.addEventListener('click', function(e) { if (e.target === d) d.remove(); });
   document.body.appendChild(d);
 }
