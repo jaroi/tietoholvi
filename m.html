@@ -587,34 +587,80 @@ function doSearch(){
 }
 
 /* ═══ HISTORY / BACK BUTTON ═══ */
-function pushState(state){history.pushState(state,'');}
-window.addEventListener('popstate',function(e){
-  var s=e.state;
-  if(!s){
-    // Ei tilaa — ollaan pohjalla, estetään poistuminen pushaamalla uusi tila
-    if(selectedProjectId){pushState({view:'projects'});showProjectSelector();}
-    return;
+var _navStack = []; // oma navigaatiopino
+var _handlingBack = false;
+
+function navPush(state) {
+  _navStack.push(state);
+  history.pushState({idx: _navStack.length}, '');
+}
+
+function navBack() {
+  if (_navStack.length === 0) return;
+  var prev = _navStack.pop();
+  _handlingBack = true;
+  if (prev.view === 'projects') {
+    selectedProjectId = null;
+    showProjectSelector();
+  } else if (prev.view === 'deviceList') {
+    deviceDetailId = null;
+    currentTab = 'laitteet';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
+    renderView();
+  } else if (prev.view === 'deviceDetail') {
+    deviceDetailId = null;
+    renderDeviceList();
+  } else if (prev.view === 'merkinnat') {
+    currentTab = 'merkinnat';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='merkinnat'); });
+    renderView();
+  } else if (prev.view === 'newMerkinta') {
+    renderView();
+  } else {
+    renderView();
   }
-  if(s.view==='projects'){selectedProjectId=null;showProjectSelector();return;}
-  if(s.view==='deviceList'){deviceDetailId=null;currentTab='laitteet';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='laitteet'));renderView();return;}
-  if(s.view==='merkinnat'){currentTab='merkinnat';deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='merkinnat'));renderView();return;}
-  if(s.view==='haku'){currentTab='haku';document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='haku'));renderView();return;}
+  _handlingBack = false;
+}
+
+window.addEventListener('popstate', function(e) {
+  if (_navStack.length > 0) {
+    navBack();
+  } else {
+    // Ollaan pohjalla — estetään poistuminen
+    history.pushState({idx: 0}, '');
+  }
 });
-// Override navigointifunktiot pushaamaan historiaan
-var _origSelectProject=selectProject;
-selectProject=function(id){_origSelectProject(id);pushState({view:'deviceList'});};
-var _origShowDevice=showDevice;
-showDevice=function(id){_origShowDevice(id);pushState({view:'deviceDetail',id:id});};
-var _origShowProjectSelector=showProjectSelector;
-showProjectSelector=function(){_origShowProjectSelector();pushState({view:'projects'});};
-var _origSwitchTab=switchTab;
-switchTab=function(tab){_origSwitchTab(tab);pushState({view:tab});};
-var _origShowNewMerkinta=showNewMerkinta;
-showNewMerkinta=function(){_origShowNewMerkinta();pushState({view:'newMerkinta'});};
+
+// Puskee tilan pinoon kun käyttäjä navigoi eteenpäin
+var _origSelectProject = selectProject;
+selectProject = function(id) {
+  if (!_handlingBack) navPush({view: 'projects'});
+  _origSelectProject(id);
+};
+var _origShowDevice = showDevice;
+showDevice = function(id) {
+  if (!_handlingBack) navPush({view: 'deviceList'});
+  _origShowDevice(id);
+};
+var _origShowProjectSelector = showProjectSelector;
+showProjectSelector = function() {
+  _origShowProjectSelector();
+};
+var _origSwitchTab = switchTab;
+switchTab = function(tab) {
+  if (!_handlingBack) navPush({view: currentTab});
+  _origSwitchTab(tab);
+};
+var _origShowNewMerkinta = showNewMerkinta;
+showNewMerkinta = function() {
+  if (!_handlingBack) navPush({view: currentTab});
+  _origShowNewMerkinta();
+};
 
 /* ═══ INIT ═══ */
-window.addEventListener('beforeunload',function(e){if(dbDirty){e.preventDefault();e.returnValue='';}});
-history.replaceState({view:'init'},'');
+window.addEventListener('beforeunload', function(e) { if (dbDirty) { e.preventDefault(); e.returnValue = ''; } });
+// Alkutila — estää heti poistumisen
+history.replaceState({idx: 0}, '');
 document.getElementById('version-label').textContent='Mobiili v'+APP_VERSION;
 init();
 </script>
