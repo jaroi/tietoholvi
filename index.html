@@ -1490,6 +1490,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
 <div id="toast-container"></div>
 <input type="file" id="file-db-input" accept=".db" style="display:none" onchange="handleDbFileLoad(event)">
+<input type="file" id="file-mobile-sync-input" accept=".json" style="display:none" onchange="handleMobileSyncImport(event)">
 <input type="file" id="file-xlsx-input" accept=".xlsx,.xls" style="display:none" onchange="handleXlsxImport(event)">
 <input type="file" id="file-asiakas-input" accept=".xlsx,.xls" style="display:none" onchange="handleAsiakasImport(event)">
 <input type="file" id="file-bulk-import" accept=".xlsx,.xls" style="display:none" onchange="handleBulkImport(event)">
@@ -1500,7 +1501,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.4.0';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
@@ -1853,6 +1854,89 @@ async function handleDbFileLoad(e) {
   renderAll(); autoSave();
   toast('Ladattu: '+f.name,'success');
   e.target.value='';
+}
+
+/* ═══ MOBILE SYNC IMPORT ═══ */
+var _syncDirHandle = null; // File System Access API handle
+function importMobileMerkinnat() {
+  // Kokeile ensin sync-kansiota (File System Access API)
+  if (_syncDirHandle) {
+    importFromSyncDir();
+  } else {
+    document.getElementById('file-mobile-sync-input').click();
+  }
+}
+async function handleMobileSyncImport(e) {
+  var f = e.target.files[0]; if (!f) return;
+  try {
+    var text = await f.text();
+    var result = processMobileSyncJson(text);
+    toast(result, 'success');
+    renderContent();
+  } catch(err) { toast('Tuontivirhe: ' + err.message, 'error'); }
+  e.target.value = '';
+}
+function processMobileSyncJson(text) {
+  var data = JSON.parse(text);
+  if (!data || data.type !== 'tietoholvi-mobile-sync') throw new Error('Ei mobiilisync-tiedosto');
+  var imported = 0, skipped = 0;
+  (data.merkinnat || []).forEach(function(m) {
+    var existing = query("SELECT id FROM merkinta WHERE id=?", [m.id]);
+    if (existing.length) { skipped++; return; }
+    saveMerkinta(m.id, {
+      projekti_id: m.projekti_id,
+      kohde_id: m.kohde_id || null,
+      otsikko: m.otsikko,
+      sisalto: m.sisalto || '',
+      tyyppi: m.tyyppi,
+      tila: m.tila || 'aktiivinen',
+      paivamaara: m.paivamaara,
+      tagit: m.tagit || ''
+    });
+    imported++;
+  });
+  return 'Tuotu ' + imported + ' merkintää' + (skipped ? ', ' + skipped + ' oli jo kannassa' : '');
+}
+async function setSyncDir() {
+  if (!window.showDirectoryPicker) { toast('Selaimesi ei tue kansion valintaa', 'error'); return; }
+  try {
+    _syncDirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    toast('Sync-kansio asetettu: ' + _syncDirHandle.name, 'success');
+  } catch(e) { if (e.name !== 'AbortError') toast('Kansion valinta epaonnistui', 'error'); }
+}
+async function importFromSyncDir() {
+  if (!_syncDirHandle) { toast('Sync-kansiota ei ole asetettu', 'error'); return; }
+  try {
+    var perm = await _syncDirHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') perm = await _syncDirHandle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') { toast('Ei oikeuksia kansioon', 'error'); return; }
+    var fileHandle = await _syncDirHandle.getFileHandle('tietoholvi-mobile-sync.json');
+    var file = await fileHandle.getFile();
+    var text = await file.text();
+    var result = processMobileSyncJson(text);
+    toast(result, 'success');
+    renderContent();
+  } catch(e) {
+    if (e.name === 'NotFoundError') toast('Kansiossa ei ole tietoholvi-mobile-sync.json tiedostoa', 'info');
+    else toast('Virhe: ' + e.message, 'error');
+  }
+}
+async function checkSyncOnStartup() {
+  if (!_syncDirHandle) return;
+  try {
+    var perm = await _syncDirHandle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') return;
+    var fileHandle = await _syncDirHandle.getFileHandle('tietoholvi-mobile-sync.json');
+    var file = await fileHandle.getFile();
+    var data = JSON.parse(await file.text());
+    if (data && data.type === 'tietoholvi-mobile-sync' && data.count > 0) {
+      var newCount = 0;
+      (data.merkinnat || []).forEach(function(m) {
+        if (!query("SELECT id FROM merkinta WHERE id=?", [m.id]).length) newCount++;
+      });
+      if (newCount > 0) toast(newCount + ' uutta mobiilimerkintää saatavilla — käytä Tuo mobiilimerkinnät', 'info');
+    }
+  } catch(e) {}
 }
 
 function renderBackupReminder() {
@@ -2220,6 +2304,7 @@ function renderDashboard() {
     '<div class="dropdown-label">Tuonti</div>' +
     '<button onclick="document.getElementById(\'file-bulk-import\').click()">'+mi('upload')+' Tuo projektit (.xlsx)</button>' +
     '<button onclick="document.getElementById(\'file-json-import\').click()">'+mi('publish')+' Tuo projekti (.json)</button>' +
+    '<button onclick="importMobileMerkinnat()">'+mi('phone_android')+' Tuo mobiilimerkinnät</button>' +
     '<div class="dropdown-sep"></div>' +
     '<button onclick="insertTestData()">'+mi('science')+' Testidataa</button>' +
     '</div></div>' +
@@ -2326,6 +2411,7 @@ function renderProject(p) {
     '<div class="dropdown-label">Tuonti</div>' +
     '<button onclick="document.getElementById(\'file-xlsx-input\').click()">'+mi('upload')+' Tuo laitteet (.xlsx)</button>' +
     '<button onclick="document.getElementById(\'file-json-import\').click()">'+mi('publish')+' Tuo projekti (.json)</button>' +
+    '<button onclick="importMobileMerkinnat()">'+mi('phone_android')+' Tuo mobiilimerkinnät</button>' +
     '<div class="dropdown-sep"></div>' +
     '<button onclick="openCloneProjekti(\''+p.id+'\')">'+mi('file_copy')+' Kopioi projekti</button>' +
     '<div class="dropdown-sep"></div>' +

@@ -43,6 +43,8 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 .topbar .material-icons { font-size:22px; }
 .unsaved-dot { width:8px; height:8px; border-radius:50%; background:var(--error); display:none; position:absolute; top:6px; right:6px; }
 .unsaved-dot.active { display:block; }
+.export-badge { position:absolute; top:2px; right:2px; min-width:16px; height:16px; border-radius:8px; background:var(--accent); color:#fff; font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+.export-badge.hidden { display:none; }
 /* Content area */
 .content { flex:1; overflow-y:auto; padding:12px; -webkit-overflow-scrolling:touch; }
 /* Bottom tabs */
@@ -164,6 +166,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
       <span class="unsaved-dot" id="unsaved-dot"></span>
     </button>
     <button onclick="loadDbFile()" title="Lataa"><span class="material-icons">folder_open</span></button>
+    <button onclick="exportMobileMerkinnat()" title="Vie mobiilimerkinnät" id="btn-export" style="position:relative"><span class="material-icons">upload</span><span class="export-badge hidden" id="export-badge"></span></button>
     <button onclick="lockApp()" title="Lukitse"><span class="material-icons">lock</span></button>
   </div>
 
@@ -189,7 +192,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.3.0';
+var APP_VERSION = '1.4.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -312,7 +315,15 @@ function saveMerkinta(id,data){var t=now();var tila=data.tila||'aktiivinen';var 
 
 /* ═══ NAVIGATION ═══ */
 function switchTab(tab){currentTab=tab;deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});renderView();}
+function updateExportBadge(){
+  var ids=getMobileMerkinnat();
+  var el=document.getElementById('export-badge');
+  if(!el)return;
+  if(ids.length){el.textContent=ids.length;el.classList.remove('hidden');}
+  else{el.classList.add('hidden');}
+}
 function renderView(){
+  updateExportBadge();
   var fab=document.getElementById('fab');
   fab.classList.toggle('hidden',currentTab==='haku');
   if(!selectedProjectId){showProjectSelector();return;}
@@ -549,7 +560,7 @@ function saveNewMerkinta(){
   // Liitä kuvat sisältöön
   pendingImages.forEach(function(url){sisalto+='<p><img src="'+url+'" style="max-width:100%"></p>';});
   var kohdeEl=document.getElementById('nm-kohde');
-  saveMerkinta(null,{
+  var newId=saveMerkinta(null,{
     projekti_id:selectedProjectId,
     kohde_id:kohdeEl?kohdeEl.value||null:null,
     otsikko:otsikko,
@@ -559,10 +570,47 @@ function saveNewMerkinta(){
     paivamaara:document.getElementById('nm-pvm').value,
     tagit:document.getElementById('nm-tagit').value||''
   });
+  // Merkitse mobiililla luoduksi
+
+  trackMobileMerkinta(newId);
   pendingImages=[];
   toast('Merkintä tallennettu','success');
   currentTab='merkinnat';
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='merkinnat'));
+  renderView();
+}
+
+/* ═══ MOBILE SYNC ═══ */
+function getMobileMerkinnat(){try{return JSON.parse(localStorage.getItem('tietoholvi_mobile_ids')||'[]');}catch(e){return[];}}
+function trackMobileMerkinta(id){var ids=getMobileMerkinnat();if(ids.indexOf(id)<0){ids.push(id);localStorage.setItem('tietoholvi_mobile_ids',JSON.stringify(ids));}}
+function exportMobileMerkinnat(){
+  var ids=getMobileMerkinnat();
+  if(!ids.length){toast('Ei vietäviä merkintöjä','info');return;}
+  var merkinnat=[];
+  ids.forEach(function(id){
+    var rows=query("SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi, k.nimi as kohde_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id LEFT JOIN kohde k ON m.kohde_id=k.id WHERE m.id=?",[id]);
+    if(rows.length) merkinnat.push(rows[0]);
+  });
+  if(!merkinnat.length){toast('Merkintöjä ei löytynyt kannasta','error');return;}
+  var data={
+    type:'tietoholvi-mobile-sync',
+    version:1,
+    exported:now(),
+    count:merkinnat.length,
+    merkinnat:merkinnat
+  };
+  var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tietoholvi-mobile-sync.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast(merkinnat.length+' merkintää viety','success');
+}
+function clearExportedMerkinnat(){
+  if(!confirm('Tyhjennetäänkö vientilista? Tee tämä vasta kun olet tuonut merkinnät desktopille.')) return;
+  localStorage.setItem('tietoholvi_mobile_ids','[]');
+  toast('Vientilista tyhjennetty','success');
   renderView();
 }
 
