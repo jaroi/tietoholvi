@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.1';
+var APP_VERSION = '1.6.2';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -605,14 +605,17 @@ async function exportMobileMerkinnat(){
       await navigator.share({title:'Tietoholvi merkinnät',files:[file]});
       shared=true;
     }catch(e){
+      toast('Share files error: '+e.name+': '+e.message,'info');
       if(e.name==='AbortError'){return;}
-      // Tiedostojako ei tuettu — kokeile pelkkää tekstiä
       try{
         await navigator.share({title:'Tietoholvi merkinnät',text:jsonStr});
         shared=true;
-      }catch(e2){if(e2.name==='AbortError')return;}
+      }catch(e2){
+        toast('Share text error: '+e2.name+': '+e2.message,'info');
+        if(e2.name==='AbortError')return;
+      }
     }
-  }
+  } else { toast('navigator.share not available','info'); }
   // Fallback: lataa tiedostona
   if(!shared){
     var a=document.createElement('a');
