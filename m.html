@@ -161,11 +161,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 <div id="app" class="hidden">
   <div class="topbar">
     <div class="topbar-project" id="topbar-project" onclick="showProjectSelector()">Valitse projekti</div>
-    <button onclick="saveDbFile()" title="Tallenna" style="position:relative">
-      <span class="material-icons">save</span>
-      <span class="unsaved-dot" id="unsaved-dot"></span>
-    </button>
-    <button onclick="loadDbFile()" title="Lataa"><span class="material-icons">folder_open</span></button>
+    <button onclick="loadDbFile()" title="Lataa tietokanta"><span class="material-icons">folder_open</span></button>
     <button onclick="exportMobileMerkinnat()" title="Vie mobiilimerkinnät" id="btn-export" style="position:relative"><span class="material-icons">upload</span><span class="export-badge hidden" id="export-badge"></span></button>
     <button onclick="lockApp()" title="Lukitse"><span class="material-icons">lock</span></button>
   </div>
@@ -192,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.5.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
