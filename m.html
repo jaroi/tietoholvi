@@ -189,7 +189,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.3.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -453,18 +453,25 @@ function renderDeviceDetail(){
 }
 
 /* ═══ MERKINTA LIST ═══ */
+function getPinnedMerkinnat(){try{return JSON.parse(getMeta('pinned_merkinnat')||'[]');}catch(e){return[];}}
 function renderMerkintaList(){
-  var rows=query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL ORDER BY COALESCE(paivamaara,luotu) DESC",[selectedProjectId]);
+  var raw=query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL ORDER BY COALESCE(paivamaara,luotu) DESC",[selectedProjectId]);
+  var pinned=getPinnedMerkinnat();
+  var rows=pinned.map(function(id){return raw.find(function(m){return m.id===id;});}).filter(Boolean).concat(raw.filter(function(m){return pinned.indexOf(m.id)<0;}));
   var h='';
   if(!rows.length) h='<div class="empty">'+mi('sticky_note_2')+'<div>Ei merkintöjä</div></div>';
-  rows.forEach(function(m){ h+=renderMerkCard(m); });
+  rows.forEach(function(m){
+    var isPinned=pinned.indexOf(m.id)>=0;
+    h+=renderMerkCard(m, isPinned);
+  });
   document.getElementById('content').innerHTML=h;
 }
-function renderMerkCard(m){
+function renderMerkCard(m, isPinned){
   var color=merkintaColor(m.tyyppi);
   var tila=m.tila||'aktiivinen';
   var h='<div class="merk-card" style="border-left-color:'+color+'">';
   h+='<div class="merk-card-header">';
+  if(isPinned) h+='<span class="material-icons" style="font-size:13px;color:var(--accent)">push_pin</span>';
   h+='<span style="color:'+color+'">'+merkintaIcon(m.tyyppi)+'</span>';
   h+='<span class="merk-card-title">'+esc(m.otsikko)+'</span>';
   if(tila!=='aktiivinen'){
