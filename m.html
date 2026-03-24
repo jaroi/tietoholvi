@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>ESYS Tietoholvi Mobile</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-main: #1a1e2e; --bg-card: #1e2235; --bg-hover: #232842;
+  --border: #2d3352; --text-primary: #e0e4ef; --text-secondary: #b8bfd6;
+  --text-muted: #9aa2c0; --text-dim: #8b93b8;
+  --accent: #4a7af5; --accent-hover: #3a66d9;
+  --success: #6ee7a0; --error: #f5716a; --info: #6ea8fe;
+  --pw-visible: #6ee7a0;
+}
+html, body { height: 100%; background: var(--bg-main); color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; overflow: hidden; }
+/* Login */
+.login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; padding:20px; }
+.login-screen h2 { margin-bottom:8px; font-size:20px; }
+.login-screen .subtitle { color:var(--text-dim); font-size:13px; margin-bottom:24px; }
+.login-screen input { width:100%; max-width:300px; padding:14px; font-size:16px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); margin-bottom:12px; }
+.login-screen button { width:100%; max-width:300px; padding:14px; font-size:16px; background:var(--accent); color:#fff; border:none; border-radius:8px; cursor:pointer; }
+.login-screen button:active { background:var(--accent-hover); }
+.login-screen .error { color:var(--error); font-size:13px; min-height:20px; margin-bottom:8px; }
+.login-screen .login-actions { display:flex; gap:12px; margin-top:16px; }
+.login-screen .login-actions button { width:auto; padding:10px 16px; font-size:13px; background:var(--bg-card); border:1px solid var(--border); color:var(--text-secondary); }
+.hidden { display: none !important; }
+/* App shell */
+#app { display:flex; flex-direction:column; height:100%; }
+.topbar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--bg-card); border-bottom:1px solid var(--border); min-height:48px; flex-shrink:0; }
+.topbar-project { flex:1; font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.topbar-project .proj-sub { font-weight:400; font-size:12px; color:var(--text-dim); }
+.topbar button, .topbar .btn-icon { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px; border-radius:6px; display:flex; align-items:center; }
+.topbar button:active { background:var(--bg-hover); }
+.topbar .material-icons { font-size:22px; }
+.unsaved-dot { width:8px; height:8px; border-radius:50%; background:var(--error); display:none; position:absolute; top:6px; right:6px; }
+.unsaved-dot.active { display:block; }
+/* Content area */
+.content { flex:1; overflow-y:auto; padding:12px; -webkit-overflow-scrolling:touch; }
+/* Bottom tabs */
+.tabs { display:flex; background:var(--bg-card); border-top:1px solid var(--border); flex-shrink:0; }
+.tab { flex:1; display:flex; flex-direction:column; align-items:center; padding:8px 0; cursor:pointer; color:var(--text-dim); font-size:10px; gap:2px; -webkit-tap-highlight-color: transparent; }
+.tab.active { color:var(--accent); }
+.tab .material-icons { font-size:22px; }
+/* Cards */
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:10px; }
+.card:active { background:var(--bg-hover); }
+.card-title { font-weight:600; font-size:15px; margin-bottom:4px; }
+.card-sub { font-size:13px; color:var(--text-muted); }
+.card-meta { font-size:11px; color:var(--text-dim); margin-top:4px; }
+/* Device detail */
+.detail-header { font-size:18px; font-weight:600; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+.detail-header .material-icons { font-size:20px; color:var(--accent); }
+.detail-section { margin-bottom:16px; }
+.detail-section-title { font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+/* Credential row */
+.cred-row { background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:8px; }
+.cred-label { font-size:11px; color:var(--text-dim); margin-bottom:2px; }
+.cred-value { font-size:14px; word-break:break-all; }
+.cred-pw { font-family:monospace; color:var(--text-dim); }
+.cred-pw.visible { color:var(--pw-visible); }
+.cred-actions { display:flex; gap:6px; margin-top:8px; }
+.cred-actions button { flex:1; padding:10px; border:1px solid var(--border); border-radius:8px; background:var(--bg-main); color:var(--text-secondary); font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:4px; }
+.cred-actions button:active { background:var(--bg-hover); border-color:var(--accent); color:var(--accent); }
+/* Merkintä card */
+.merk-card { background:var(--bg-card); border:1px solid var(--border); border-left:3px solid var(--text-muted); border-radius:8px; padding:12px; margin-bottom:8px; }
+.merk-card-header { display:flex; align-items:center; gap:6px; }
+.merk-card-title { flex:1; font-size:14px; font-weight:500; }
+.merk-card-date { font-size:11px; color:var(--text-dim); }
+.merk-card-body { font-size:13px; color:var(--text-secondary); margin-top:8px; line-height:1.5; }
+.merk-card-body img { max-width:100%; border-radius:6px; margin:4px 0; }
+.merk-tags { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+.merk-tag { font-size:11px; background:rgba(74,122,245,0.12); color:var(--accent); padding:2px 8px; border-radius:10px; }
+.tila-badge { font-size:11px; padding:2px 8px; border-radius:10px; }
+.tila-valmis { color:var(--success); background:rgba(40,167,69,0.12); }
+.tila-vanhentunut { color:var(--text-dim); background:rgba(128,128,128,0.12); }
+.tila-tarkea { color:#ff9800; background:rgba(255,152,0,0.12); }
+.tila-arkistoitu { color:var(--text-dim); background:rgba(128,128,128,0.1); }
+/* Search */
+.search-input { width:100%; padding:12px 14px; font-size:15px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; color:var(--text-primary); margin-bottom:12px; }
+.search-input:focus { outline:none; border-color:var(--accent); }
+.search-group { font-size:11px; color:var(--text-dim); text-transform:uppercase; margin:12px 0 6px; letter-spacing:0.5px; }
+/* Form */
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px; }
+.form-group input, .form-group textarea, .form-group select { width:100%; padding:12px; font-size:15px; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); font-family:inherit; }
+.form-group textarea { min-height:120px; resize:vertical; }
+.form-group select { appearance:none; }
+.form-row { display:flex; gap:8px; }
+.form-row > .form-group { flex:1; }
+.btn-primary { width:100%; padding:14px; font-size:16px; background:var(--accent); color:#fff; border:none; border-radius:8px; cursor:pointer; margin-top:8px; }
+.btn-primary:active { background:var(--accent-hover); }
+.btn-secondary { width:100%; padding:12px; font-size:14px; background:var(--bg-card); color:var(--text-secondary); border:1px solid var(--border); border-radius:8px; cursor:pointer; margin-top:8px; }
+.img-preview { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.img-preview img { width:80px; height:80px; object-fit:cover; border-radius:6px; border:1px solid var(--border); }
+.img-preview .img-remove { position:absolute; top:-6px; right:-6px; background:var(--error); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.img-thumb { position:relative; display:inline-block; }
+/* FAB */
+.fab { position:fixed; bottom:68px; right:16px; width:56px; height:56px; border-radius:50%; background:var(--accent); color:#fff; border:none; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:50; }
+.fab:active { background:var(--accent-hover); }
+.fab .material-icons { font-size:28px; }
+/* Project selector */
+.proj-list .card { display:flex; align-items:center; gap:10px; }
+.proj-icon { width:36px; height:36px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.proj-icon .material-icons { color:#fff; font-size:18px; }
+.proj-info { flex:1; overflow:hidden; }
+.proj-info .proj-name { font-weight:600; font-size:14px; }
+.proj-info .proj-customer { font-size:12px; color:var(--text-muted); }
+/* Back button */
+.back-btn { display:flex; align-items:center; gap:4px; color:var(--accent); font-size:14px; cursor:pointer; margin-bottom:12px; background:none; border:none; padding:4px 0; }
+/* Toast */
+.toast-container { position:fixed; top:56px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:6px; }
+.toast { padding:10px 18px; border-radius:8px; font-size:13px; animation:fadeIn .2s; }
+.toast.success { background:var(--success); color:#1a4731; }
+.toast.error { background:var(--error); color:#fff; }
+.toast.info { background:var(--info); color:#1a2a4a; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+/* Empty state */
+.empty { text-align:center; padding:40px 20px; color:var(--text-dim); }
+.empty .material-icons { font-size:48px; opacity:0.3; margin-bottom:12px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-screen">
+  <h2>🔒 ESYS Tietoholvi</h2>
+  <div class="subtitle">Mobiiliversio</div>
+  <div id="login-loading">Ladataan...</div>
+  <div id="login-form" class="hidden">
+    <input type="password" id="login-pw" placeholder="Salasana" autocomplete="current-password">
+    <div id="login-error" class="error"></div>
+    <button onclick="doLogin()">Kirjaudu</button>
+    <div class="login-actions">
+      <button onclick="loadDbFile()">📂 Lataa .db</button>
+    </div>
+  </div>
+  <div id="login-setup" class="hidden">
+    <input type="password" id="setup-pw1" placeholder="Uusi salasana">
+    <input type="password" id="setup-pw2" placeholder="Salasana uudelleen">
+    <div id="setup-error" class="error"></div>
+    <button onclick="setupMasterPassword()">Luo Tietoholvi</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="topbar-project" id="topbar-project" onclick="showProjectSelector()">Valitse projekti</div>
+    <button onclick="saveDbFile()" title="Tallenna" style="position:relative">
+      <span class="material-icons">save</span>
+      <span class="unsaved-dot" id="unsaved-dot"></span>
+    </button>
+    <button onclick="loadDbFile()" title="Lataa"><span class="material-icons">folder_open</span></button>
+    <button onclick="lockApp()" title="Lukitse"><span class="material-icons">lock</span></button>
+  </div>
+
+  <div class="content" id="content"></div>
+
+  <button class="fab hidden" id="fab" onclick="showNewMerkinta()"><span class="material-icons">add</span></button>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="laitteet" onclick="switchTab('laitteet')">
+      <span class="material-icons">dns</span>Laitteet
+    </div>
+    <div class="tab" data-tab="merkinnat" onclick="switchTab('merkinnat')">
+      <span class="material-icons">auto_stories</span>Merkinnät
+    </div>
+    <div class="tab" data-tab="haku" onclick="switchTab('haku')">
+      <span class="material-icons">search</span>Haku
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<input type="file" id="file-db-input" accept=".db" style="display:none" onchange="handleDbFileLoad(event)">
+
+<script>
+/* ═══ GLOBALS ═══ */
+var SQL, db, encryptionKey, dbDirty = false;
+var currentTab = 'laitteet';
+var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
+var deviceDetailId = null;
+
+/* ═══ UTILS ═══ */
+function uuid() { if(crypto.randomUUID) return crypto.randomUUID(); return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);}); }
+function now() { return new Date().toISOString(); }
+function esc(s) { if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function mi(n) { return '<span class="material-icons">'+n+'</span>'; }
+function toast(msg,type) { var d=document.createElement('div'); d.className='toast '+(type||'info'); d.textContent=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),type==='error'?6000:3000); }
+
+/* ═══ ENCRYPTION ═══ */
+async function deriveKey(password,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
+async function encryptText(plain){if(!encryptionKey||!plain) return plain||'';const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},encryptionKey,new TextEncoder().encode(plain));const buf=new Uint8Array(iv.length+ct.byteLength);buf.set(iv);buf.set(new Uint8Array(ct),iv.length);return 'ENC:'+btoa(String.fromCharCode(...buf));}
+async function decryptText(enc){if(!encryptionKey||!enc||!enc.startsWith('ENC:')) return enc||'';try{const raw=atob(enc.slice(4));const buf=new Uint8Array([...raw].map(c=>c.charCodeAt(0)));const dec=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},encryptionKey,buf.slice(12));return new TextDecoder().decode(dec);}catch(e){return '[salauksen purku epaonnistui]';}}
+async function hashPassword(password,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},km,256);return btoa(String.fromCharCode(...new Uint8Array(bits)));}
+
+/* ═══ DATABASE ═══ */
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS meta (avain TEXT PRIMARY KEY, arvo TEXT);
+CREATE TABLE IF NOT EXISTS asiakas (id TEXT PRIMARY KEY, nimi TEXT NOT NULL, yhteyshenkilo TEXT, puhelin TEXT, sahkoposti TEXT, osoite TEXT, www TEXT, luotu TEXT, muokattu TEXT);
+CREATE TABLE IF NOT EXISTS projekti (id TEXT PRIMARY KEY, tunnus TEXT, nimi TEXT NOT NULL, asiakas_id TEXT, kuvaus TEXT, lisatiedot TEXT, polku TEXT, luotu TEXT, muokattu TEXT, FOREIGN KEY(asiakas_id) REFERENCES asiakas(id));
+CREATE TABLE IF NOT EXISTS kohde (id TEXT PRIMARY KEY, projekti_id TEXT NOT NULL, parent_id TEXT, nimi TEXT NOT NULL, tyyppi TEXT DEFAULT 'palvelin', valmistaja TEXT, malli TEXT, osoite TEXT, kuvaus TEXT, lisatiedot TEXT, ai_tiedot TEXT, tulosta INTEGER DEFAULT 1, luotu TEXT, muokattu TEXT, FOREIGN KEY(projekti_id) REFERENCES projekti(id), FOREIGN KEY(parent_id) REFERENCES kohde(id));
+CREATE TABLE IF NOT EXISTS tunniste (id TEXT PRIMARY KEY, projekti_id TEXT, kohde_id TEXT, tyyppi TEXT DEFAULT 'kirjautuminen', palvelu TEXT, kayttajatunnus TEXT, salasana TEXT, portti TEXT, url TEXT, lisatiedot TEXT, vaihdettu TEXT, luotu TEXT, muokattu TEXT);
+CREATE TABLE IF NOT EXISTS merkinta (id TEXT PRIMARY KEY, projekti_id TEXT, tyyppi TEXT DEFAULT 'muistiinpano', otsikko TEXT NOT NULL, sisalto TEXT, paivamaara TEXT, tagit TEXT, korjattu TEXT, tila TEXT DEFAULT 'aktiivinen', tulosta INTEGER DEFAULT 1, ai_piilota INTEGER DEFAULT 0, ai_tiivistelma TEXT, luotu TEXT, muokattu TEXT, FOREIGN KEY(projekti_id) REFERENCES projekti(id));
+CREATE TABLE IF NOT EXISTS henkilo (id TEXT PRIMARY KEY, nimi TEXT NOT NULL, nimike TEXT, organisaatio TEXT, puhelin TEXT, sahkoposti TEXT, lisatiedot TEXT, luotu TEXT, muokattu TEXT);
+CREATE TABLE IF NOT EXISTS projekti_henkilo (id TEXT PRIMARY KEY, projekti_id TEXT NOT NULL, henkilo_id TEXT NOT NULL, rooli TEXT, tulosta INTEGER DEFAULT 1, FOREIGN KEY(projekti_id) REFERENCES projekti(id), FOREIGN KEY(henkilo_id) REFERENCES henkilo(id));`;
+const SCHEMA_VERSION = 15;
+const MIGRATIONS = [
+  {version:2,up:"CREATE TABLE IF NOT EXISTS merkinta (id TEXT PRIMARY KEY, projekti_id TEXT, tyyppi TEXT DEFAULT 'muistiinpano', otsikko TEXT NOT NULL, sisalto TEXT, paivamaara TEXT, tagit TEXT, korjattu TEXT, tulosta INTEGER DEFAULT 1, luotu TEXT, muokattu TEXT, FOREIGN KEY(projekti_id) REFERENCES projekti(id));"},
+  {version:3,up:"ALTER TABLE merkinta ADD COLUMN korjattu TEXT;"},
+  {version:4,up:"ALTER TABLE merkinta ADD COLUMN tulosta INTEGER DEFAULT 1;"},
+  {version:5,up:"CREATE TABLE IF NOT EXISTS henkilo (id TEXT PRIMARY KEY, nimi TEXT NOT NULL, nimike TEXT, organisaatio TEXT, puhelin TEXT, sahkoposti TEXT, lisatiedot TEXT, luotu TEXT, muokattu TEXT); CREATE TABLE IF NOT EXISTS projekti_henkilo (id TEXT PRIMARY KEY, projekti_id TEXT NOT NULL, henkilo_id TEXT NOT NULL, rooli TEXT, FOREIGN KEY(projekti_id) REFERENCES projekti(id), FOREIGN KEY(henkilo_id) REFERENCES henkilo(id));"},
+  {version:6,up:"ALTER TABLE projekti ADD COLUMN polku TEXT;"},
+  {version:7,up:"ALTER TABLE asiakas ADD COLUMN www TEXT;"},
+  {version:8,up:"ALTER TABLE kohde ADD COLUMN valmistaja TEXT;"},
+  {version:9,up:"ALTER TABLE kohde ADD COLUMN ai_tiedot TEXT;"},
+  {version:10,up:"ALTER TABLE kohde ADD COLUMN malli TEXT;"},
+  {version:11,up:"ALTER TABLE merkinta ADD COLUMN ai_piilota INTEGER DEFAULT 0;"},
+  {version:12,up:"ALTER TABLE kohde ADD COLUMN tulosta INTEGER DEFAULT 1;"},
+  {version:13,up:"ALTER TABLE projekti_henkilo ADD COLUMN tulosta INTEGER DEFAULT 1;"},
+  {version:14,up:"ALTER TABLE merkinta ADD COLUMN ai_tiivistelma TEXT;"},
+  {version:15,up:"ALTER TABLE merkinta ADD COLUMN tila TEXT DEFAULT 'aktiivinen'; UPDATE merkinta SET tila='valmis' WHERE korjattu IS NOT NULL;"},
+  {version:16,up:"ALTER TABLE merkinta ADD COLUMN kohde_id TEXT;"},
+];
+function initDb(data){db=data?new SQL.Database(new Uint8Array(data)):new SQL.Database();db.run("PRAGMA foreign_keys = ON;");SCHEMA.split(';').forEach(s=>{s=s.trim();if(s)try{db.run(s);}catch(e){}});migrateDb();}
+function migrateDb(){try{db.run("CREATE TABLE IF NOT EXISTS meta (avain TEXT PRIMARY KEY, arvo TEXT)");}catch(e){}let cv=0;try{const r=db.exec("SELECT arvo FROM meta WHERE avain='schema_version'");if(r.length&&r[0].values.length)cv=parseInt(r[0].values[0][0])||0;}catch(e){}if(cv===0){try{db.run("INSERT OR REPLACE INTO meta(avain,arvo) VALUES('schema_version',?)",[String(SCHEMA_VERSION)]);}catch(e){}return;}for(const m of MIGRATIONS){if(m.version>cv){try{m.up.split(';').forEach(s=>{s=s.trim();if(s)db.run(s);});db.run("INSERT OR REPLACE INTO meta(avain,arvo) VALUES('schema_version',?)",[String(m.version)]);}catch(e){if(e.message&&e.message.indexOf('duplicate column')>=0){db.run("INSERT OR REPLACE INTO meta(avain,arvo) VALUES('schema_version',?)",[String(m.version)]);}else{toast('Schema-paivitys v'+m.version+' epaonnistui: '+e.message,'error');return;}}}}}
+function query(sql,params){try{const stmt=db.prepare(sql);if(params)stmt.bind(params);const rows=[];while(stmt.step())rows.push(stmt.getAsObject());stmt.free();return rows;}catch(e){console.error('Q:',sql,e);return[];}}
+function run(sql,params){try{db.run(sql,params);scheduleSave();markDirty();}catch(e){console.error('R:',sql,e);toast('Virhe: '+e.message,'error');}}
+function markDirty(){dbDirty=true;var d=document.getElementById('unsaved-dot');if(d)d.classList.add('active');}
+function markClean(){dbDirty=false;var d=document.getElementById('unsaved-dot');if(d)d.classList.remove('active');}
+function getMeta(k){const r=query("SELECT arvo FROM meta WHERE avain=?",[k]);return r.length?r[0].arvo:null;}
+function setMeta(k,v){run("INSERT OR REPLACE INTO meta(avain,arvo)VALUES(?,?)",[k,v]);}
+
+/* ═══ INDEXEDDB ═══ */
+var saveTimer=null;
+function scheduleSave(){if(saveTimer)clearTimeout(saveTimer);saveTimer=setTimeout(autoSave,1000);}
+function autoSave(){if(!db)return;const data=db.export();try{const req=indexedDB.open('EsysTietoholvi',1);req.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains('db'))e.target.result.createObjectStore('db');};req.onsuccess=e=>{e.target.result.transaction('db','readwrite').objectStore('db').put(data,'current');};}catch(e){}}
+function loadFromIDB(){return new Promise(resolve=>{try{const req=indexedDB.open('EsysTietoholvi',1);req.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains('db'))e.target.result.createObjectStore('db');};req.onsuccess=e=>{const r=e.target.result.transaction('db','readonly').objectStore('db').get('current');r.onsuccess=()=>{resolve(r.result||null);};r.onerror=()=>resolve(null);};req.onerror=()=>resolve(null);}catch(e){resolve(null);}});}
+
+/* ═══ FILE SAVE/LOAD ═══ */
+function saveDbFile(){if(!db)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([db.export()]));a.download='esys-tietoholvi-'+new Date().toISOString().slice(0,10)+'.db';a.click();URL.revokeObjectURL(a.href);setMeta('last_backup',new Date().toISOString());markClean();autoSave();toast('Tietokanta tallennettu','success');}
+function loadDbFile(){document.getElementById('file-db-input').click();}
+async function handleDbFileLoad(e){const f=e.target.files[0];if(!f)return;initDb(await f.arrayBuffer());if(!getMeta('master_pw_hash')){toast('Ei master-salasanaa tiedostossa','error');return;}markClean();autoSave();toast('Ladattu: '+f.name,'success');e.target.value='';showApp();}
+
+/* ═══ LOGIN ═══ */
+async function init(){
+  if(typeof initSqlJs==='undefined'){document.getElementById('login-loading').textContent='Tietokantakirjaston lataus epaonnistui.';return;}
+  var sqlLoaded=false;
+  if(typeof SQLJS_WASM_BASE64!=='undefined'){try{const bin=new Uint8Array(atob(SQLJS_WASM_BASE64).split('').map(c=>c.charCodeAt(0)));SQL=await initSqlJs({wasmBinary:bin});sqlLoaded=true;}catch(e){}}
+  if(!sqlLoaded){const urls=['https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/','https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/'];for(const base of urls){try{SQL=await initSqlJs({locateFile:f=>base+f});sqlLoaded=true;break;}catch(e){}}}
+  if(!sqlLoaded){document.getElementById('login-loading').textContent='WASM-lataus epaonnistui.';return;}
+  const data=await loadFromIDB();initDb(data);
+  document.getElementById('login-loading').style.display='none';
+  if(getMeta('master_pw_hash')){document.getElementById('login-form').classList.remove('hidden');document.getElementById('login-pw').focus();}
+  else{document.getElementById('login-setup').classList.remove('hidden');document.getElementById('setup-pw1').focus();}
+  document.getElementById('login-pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('setup-pw2').addEventListener('keydown',e=>{if(e.key==='Enter')setupMasterPassword();});
+}
+async function setupMasterPassword(){
+  const pw1=document.getElementById('setup-pw1').value,pw2=document.getElementById('setup-pw2').value,err=document.getElementById('setup-error');
+  if(pw1.length<4){err.textContent='Vahintaan 4 merkkia';return;}if(pw1!==pw2){err.textContent='Salasanat eivat tasmaa';return;}
+  const vs=crypto.getRandomValues(new Uint8Array(32)),ks=crypto.getRandomValues(new Uint8Array(32));
+  setMeta('master_pw_hash',await hashPassword(pw1,vs));setMeta('master_pw_salt',btoa(String.fromCharCode(...vs)));setMeta('master_key_salt',btoa(String.fromCharCode(...ks)));
+  encryptionKey=await deriveKey(pw1,ks);setMeta('verify_token',await encryptText('ESYS_TIETOHOLVI_OK'));autoSave();showApp();toast('Tietoholvi luotu!','success');
+}
+async function doLogin(){
+  const pw=document.getElementById('login-pw').value,err=document.getElementById('login-error');
+  if(!pw){err.textContent='Syota salasana';return;}
+  const vs=new Uint8Array([...atob(getMeta('master_pw_salt'))].map(c=>c.charCodeAt(0)));
+  if(await hashPassword(pw,vs)!==getMeta('master_pw_hash')){err.textContent='Vaara salasana';document.getElementById('login-pw').value='';document.getElementById('login-pw').focus();return;}
+  const ksB=getMeta('master_key_salt');const ks=ksB?new Uint8Array([...atob(ksB)].map(c=>c.charCodeAt(0))):vs;
+  encryptionKey=await deriveKey(pw,ks);showApp();
+}
+function showApp(){document.getElementById('login-screen').classList.add('hidden');document.getElementById('app').classList.remove('hidden');renderView();}
+function lockApp(){encryptionKey=null;db=null;document.getElementById('app').classList.add('hidden');document.getElementById('login-screen').classList.remove('hidden');document.getElementById('login-form').classList.remove('hidden');document.getElementById('login-setup').classList.add('hidden');document.getElementById('login-pw').value='';document.getElementById('login-pw').focus();}
+
+/* ═══ ICONS ═══ */
+function kohdeIcon(t){var m={palvelin:'dns',plc:'developer_board',verkkolaite:'device_hub',palomuuri:'security',taajuusmuuttaja:'electric_bolt',robotti:'precision_manufacturing',vpn:'vpn_lock',palvelu:'cloud',kamera:'videocam',mittalaite:'sensors',liityntamoduuli:'settings_input_component',operointipaneeli:'touch_app',logiikkakortti:'developer_board',muu:'category'};return mi(m[t]||'category');}
+function merkintaIcon(t){var m={muistiinpano:'sticky_note_2',kayntiraportti:'directions_walk',kayttoonotto:'play_circle',vikaraportti:'warning',huomio:'notification_important',tehtava:'task_alt',muu:'article'};return mi(m[t]||'article');}
+function merkintaColor(t){var m={muistiinpano:'var(--text-muted)',kayntiraportti:'var(--success)',kayttoonotto:'#f0ad4e',vikaraportti:'var(--error)',huomio:'#ff9800',tehtava:'#9c27b0',muu:'var(--text-dim)'};return m[t]||'var(--text-muted)';}
+function merkintaLabel(t){var m={muistiinpano:'Muistiinpano',kayntiraportti:'Käyntiraportti',kayttoonotto:'Käyttöönotto',vikaraportti:'Vikaraportti',huomio:'Huomio',tehtava:'Tehtävä',muu:'Muu'};return m[t]||'Muistiinpano';}
+
+/* ═══ CREDENTIAL FUNCTIONS ═══ */
+async function togglePw(id){var el=document.getElementById('pw-'+id);if(!el)return;if(el.dataset.visible==='true'){el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022';el.classList.remove('visible');el.dataset.visible='false';}else{var t=query("SELECT salasana FROM tunniste WHERE id=?",[id]);if(!t.length)return;el.textContent=await decryptText(t[0].salasana);el.classList.add('visible');el.dataset.visible='true';setTimeout(()=>{el.textContent='\u2022\u2022\u2022\u2022\u2022\u2022';el.classList.remove('visible');el.dataset.visible='false';},10000);}}
+async function copyPw(id){var t=query("SELECT salasana FROM tunniste WHERE id=?",[id]);if(!t.length)return;var pw=await decryptText(t[0].salasana);try{await navigator.clipboard.writeText(pw);toast('Salasana kopioitu','success');setTimeout(()=>{try{navigator.clipboard.writeText('');}catch(e){}},30000);}catch(e){toast('Kopiointi epaonnistui','error');}}
+async function copyUser(id){var t=query("SELECT kayttajatunnus FROM tunniste WHERE id=?",[id]);if(!t.length)return;try{await navigator.clipboard.writeText(t[0].kayttajatunnus||'');toast('Tunnus kopioitu','success');}catch(e){toast('Kopiointi epaonnistui','error');}}
+async function copyText(text){try{await navigator.clipboard.writeText(text);toast('Kopioitu','success');}catch(e){toast('Kopiointi epaonnistui','error');}}
+
+/* ═══ IMAGE HANDLING ═══ */
+const IMG_QUALITY_PRESETS={small:{maxW:500,maxH:375,quality:0.75},medium:{maxW:800,maxH:600,quality:0.82},large:{maxW:1200,maxH:900,quality:0.85}};
+const IMG_MAX_SIZE_KB=500, IMG_MAX_PER_MERKINTA=5;
+function getImgQuality(){return getMeta('img_quality')||'small';}
+function dataUrlSizeKB(u){var b=u.split(',')[1]||'';return Math.round(b.length*3/4/1024);}
+function processImageFile(file){var preset=IMG_QUALITY_PRESETS[getImgQuality()]||IMG_QUALITY_PRESETS.medium;return new Promise(function(resolve,reject){if(!file.type.startsWith('image/')){reject(new Error('Ei kuvatiedosto'));return;}var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var w=img.width,h=img.height;var scale=Math.min(1,preset.maxW/w,preset.maxH/h);if(scale<1){w=Math.round(w*scale);h=Math.round(h*scale);}var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);var url=canvas.toDataURL('image/jpeg',preset.quality);if(dataUrlSizeKB(url)<=IMG_MAX_SIZE_KB){resolve(url);return;}var qs=[preset.quality*0.8,preset.quality*0.6,0.4];for(var i=0;i<qs.length;i++){url=canvas.toDataURL('image/jpeg',qs[i]);if(dataUrlSizeKB(url)<=IMG_MAX_SIZE_KB){resolve(url);return;}}reject(new Error('Kuva liian suuri'));};img.onerror=function(){reject(new Error('Kuvan lataus epaonnistui'));};img.src=e.target.result;};reader.readAsDataURL(file);});}
+
+/* ═══ SAVE MERKINTA ═══ */
+function saveMerkinta(id,data){var t=now();var tila=data.tila||'aktiivinen';var ks=tila==='valmis'?", korjattu=COALESCE(korjattu, '"+t+"')":', korjattu=NULL';if(id){var ex=query("SELECT id FROM merkinta WHERE id=?",[id]);if(ex.length){var p=[data.projekti_id||null,data.tyyppi||'muistiinpano',data.otsikko,data.sisalto||'',data.paivamaara||t.slice(0,10),data.tagit||'',tila,t];var kohdeUpd=data.kohde_id!==undefined?', kohde_id=?':'';if(data.kohde_id!==undefined)p.push(data.kohde_id||null);p.push(id);run("UPDATE merkinta SET projekti_id=?, tyyppi=?, otsikko=?, sisalto=?, paivamaara=?, tagit=?, tila=?, muokattu=?, ai_tiivistelma=NULL"+kohdeUpd+ks+" WHERE id=?",p);return id;}}var nid=id||uuid();var kv=tila==='valmis'?t:null;run("INSERT INTO merkinta(id,projekti_id,kohde_id,tyyppi,otsikko,sisalto,paivamaara,tagit,tila,korjattu,ai_piilota,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",[nid,data.projekti_id||null,data.kohde_id||null,data.tyyppi||'muistiinpano',data.otsikko,data.sisalto||'',data.paivamaara||t.slice(0,10),data.tagit||'',tila,kv,0,t,t]);return nid;}
+
+/* ═══ NAVIGATION ═══ */
+function switchTab(tab){currentTab=tab;deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});renderView();}
+function renderView(){
+  var fab=document.getElementById('fab');
+  fab.classList.toggle('hidden',currentTab==='haku');
+  if(!selectedProjectId){showProjectSelector();return;}
+  updateTopbar();
+  if(currentTab==='laitteet'){if(deviceDetailId)renderDeviceDetail();else renderDeviceList();}
+  else if(currentTab==='merkinnat') renderMerkintaList();
+  else if(currentTab==='haku') renderSearch();
+}
+function updateTopbar(){
+  var el=document.getElementById('topbar-project');
+  if(!selectedProjectId){el.innerHTML='Valitse projekti';return;}
+  var p=query("SELECT p.*, a.nimi as asiakas FROM projekti p LEFT JOIN asiakas a ON p.asiakas_id=a.id WHERE p.id=?",[selectedProjectId]);
+  if(!p.length){el.innerHTML='Valitse projekti';return;}
+  el.innerHTML=esc((p[0].tunnus?p[0].tunnus+' — ':'')+p[0].nimi)+'<br><span class="proj-sub">'+esc(p[0].asiakas||'')+'</span>';
+}
+
+/* ═══ PROJECT SELECTOR ═══ */
+function showProjectSelector(){
+  var projs=query("SELECT p.*, a.nimi as asiakas FROM projekti p LEFT JOIN asiakas a ON p.asiakas_id=a.id ORDER BY a.nimi, p.tunnus, p.nimi");
+  var h='<input class="search-input" id="proj-search" placeholder="Hae projektia..." oninput="filterProjects()">';
+  h+='<div class="proj-list" id="proj-list">';
+  if(!projs.length) h+='<div class="empty">'+mi('folder_off')+'<div>Ei projekteja</div><div style="font-size:13px;margin-top:8px">Lataa .db-tiedosto</div></div>';
+  projs.forEach(function(p){
+    h+='<div class="card" onclick="selectProject(\''+p.id+'\')">';
+    h+='<div class="proj-icon">'+mi('folder')+'</div>';
+    h+='<div class="proj-info"><div class="proj-name">'+esc((p.tunnus?p.tunnus+' — ':'')+p.nimi)+'</div>';
+    h+='<div class="proj-customer">'+esc(p.asiakas||'')+'</div></div></div>';
+  });
+  h+='</div>';
+  document.getElementById('content').innerHTML=h;
+  document.getElementById('tabs').style.display='none';
+  document.getElementById('fab').classList.add('hidden');
+  document.getElementById('topbar-project').innerHTML='Valitse projekti';
+}
+function filterProjects(){
+  var q=(document.getElementById('proj-search').value||'').toLowerCase();
+  document.querySelectorAll('.proj-list .card').forEach(function(c){c.style.display=c.textContent.toLowerCase().indexOf(q)>=0?'':'none';});
+}
+function selectProject(id){
+  selectedProjectId=id;
+  localStorage.setItem('tietoholvi_mobile_project',id);
+  document.getElementById('tabs').style.display='';
+  currentTab='laitteet';deviceDetailId=null;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='laitteet'));
+  renderView();
+}
+
+/* ═══ DEVICE LIST ═══ */
+function renderDeviceList(){
+  var devs=query("SELECT * FROM kohde WHERE projekti_id=? AND parent_id IS NULL ORDER BY nimi",[selectedProjectId]);
+  var h='';
+  if(!devs.length) h='<div class="empty">'+mi('dns')+'<div>Ei laitteita</div></div>';
+  devs.forEach(function(k){
+    var mfg=[k.valmistaja,k.malli].filter(Boolean).join(' ');
+    var credCount=query("SELECT COUNT(*) as c FROM tunniste WHERE kohde_id=?",[k.id])[0].c;
+    var childCount=query("SELECT COUNT(*) as c FROM kohde WHERE parent_id=?",[k.id])[0].c;
+    var merkCount=query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=?",[k.id])[0].c;
+    h+='<div class="card" onclick="showDevice(\''+k.id+'\')">';
+    h+='<div class="card-title" style="display:flex;align-items:center;gap:6px"><span style="color:var(--accent)">'+kohdeIcon(k.tyyppi)+'</span> '+esc(k.nimi)+'</div>';
+    if(mfg) h+='<div class="card-sub">'+esc(mfg)+'</div>';
+    var meta=[];
+    if(k.osoite) meta.push(esc(k.osoite));
+    if(credCount) meta.push(credCount+' tunnistetta');
+    if(childCount) meta.push(childCount+' alalaitetta');
+    if(merkCount) meta.push(merkCount+' merkintää');
+    if(meta.length) h+='<div class="card-meta">'+meta.join(' · ')+'</div>';
+    h+='</div>';
+  });
+  document.getElementById('content').innerHTML=h;
+}
+
+/* ═══ DEVICE DETAIL ═══ */
+function showDevice(id){deviceDetailId=id;renderDeviceDetail();}
+function renderDeviceDetail(){
+  var k=query("SELECT * FROM kohde WHERE id=?",[deviceDetailId]);
+  if(!k.length){deviceDetailId=null;renderDeviceList();return;}
+  k=k[0];
+  var h='<button class="back-btn" onclick="deviceDetailId=null;renderView()">'+mi('arrow_back')+' Takaisin</button>';
+  h+='<div class="detail-header"><span style="color:var(--accent)">'+kohdeIcon(k.tyyppi)+'</span> '+esc(k.nimi)+'</div>';
+  // Info
+  var mfg=[k.valmistaja,k.malli].filter(Boolean).join(' ');
+  if(mfg||k.osoite||k.kuvaus){
+    h+='<div class="detail-section">';
+    if(mfg) h+='<div style="font-size:13px;color:var(--text-secondary);margin-bottom:4px">'+esc(mfg)+'</div>';
+    if(k.osoite) h+='<div style="font-size:13px;margin-bottom:4px"><span style="color:var(--text-dim)">Osoite:</span> '+esc(k.osoite)+' <span class="material-icons" style="font-size:14px;color:var(--text-dim);cursor:pointer;vertical-align:middle" onclick="copyText(\''+esc(k.osoite).replace(/'/g,"\\'")+'\')">content_copy</span></div>';
+    if(k.kuvaus) h+='<div style="font-size:13px;color:var(--text-secondary)">'+esc(k.kuvaus)+'</div>';
+    h+='</div>';
+  }
+  // Credentials
+  var creds=query("SELECT * FROM tunniste WHERE kohde_id=? ORDER BY palvelu",[k.id]);
+  if(creds.length){
+    h+='<div class="detail-section"><div class="detail-section-title">Tunnisteet ('+creds.length+')</div>';
+    creds.forEach(function(t){
+      h+='<div class="cred-row">';
+      h+='<div class="cred-label">'+esc(t.palvelu||t.tyyppi||'Kirjautuminen')+'</div>';
+      h+='<div class="cred-value">'+esc(t.kayttajatunnus||'-')+'</div>';
+      h+='<div class="cred-pw" id="pw-'+t.id+'" data-visible="false">\u2022\u2022\u2022\u2022\u2022\u2022</div>';
+      h+='<div class="cred-actions">';
+      h+='<button onclick="event.stopPropagation();togglePw(\''+t.id+'\')">'+mi('visibility')+' Näytä</button>';
+      h+='<button onclick="event.stopPropagation();copyPw(\''+t.id+'\')">'+mi('key')+' Salasana</button>';
+      h+='<button onclick="event.stopPropagation();copyUser(\''+t.id+'\')">'+mi('person')+' Tunnus</button>';
+      h+='</div></div>';
+    });
+    h+='</div>';
+  }
+  // Sub-devices
+  var children=query("SELECT * FROM kohde WHERE parent_id=? ORDER BY nimi",[k.id]);
+  if(children.length){
+    h+='<div class="detail-section"><div class="detail-section-title">Alalaitteet ('+children.length+')</div>';
+    children.forEach(function(c){
+      var cmfg=[c.valmistaja,c.malli].filter(Boolean).join(' ');
+      h+='<div class="card" onclick="showDevice(\''+c.id+'\')">';
+      h+='<div class="card-title" style="display:flex;align-items:center;gap:6px"><span style="color:var(--accent)">'+kohdeIcon(c.tyyppi)+'</span> '+esc(c.nimi)+'</div>';
+      if(cmfg) h+='<div class="card-sub">'+esc(cmfg)+'</div>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  // Device merkinnät
+  var merks=query("SELECT * FROM merkinta WHERE kohde_id=? ORDER BY COALESCE(paivamaara,luotu) DESC",[k.id]);
+  if(merks.length){
+    h+='<div class="detail-section"><div class="detail-section-title">Merkinnät ('+merks.length+')</div>';
+    merks.forEach(function(m){ h+=renderMerkCard(m); });
+    h+='</div>';
+  }
+  document.getElementById('content').innerHTML=h;
+}
+
+/* ═══ MERKINTA LIST ═══ */
+function renderMerkintaList(){
+  var rows=query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL ORDER BY COALESCE(paivamaara,luotu) DESC",[selectedProjectId]);
+  var h='';
+  if(!rows.length) h='<div class="empty">'+mi('sticky_note_2')+'<div>Ei merkintöjä</div></div>';
+  rows.forEach(function(m){ h+=renderMerkCard(m); });
+  document.getElementById('content').innerHTML=h;
+}
+function renderMerkCard(m){
+  var color=merkintaColor(m.tyyppi);
+  var tila=m.tila||'aktiivinen';
+  var h='<div class="merk-card" style="border-left-color:'+color+'">';
+  h+='<div class="merk-card-header">';
+  h+='<span style="color:'+color+'">'+merkintaIcon(m.tyyppi)+'</span>';
+  h+='<span class="merk-card-title">'+esc(m.otsikko)+'</span>';
+  if(tila!=='aktiivinen'){
+    var cls={valmis:'tila-valmis',vanhentunut:'tila-vanhentunut',tarkea:'tila-tarkea',arkistoitu:'tila-arkistoitu'}[tila]||'';
+    var lbl={valmis:'Valmis',vanhentunut:'Vanhentunut',tarkea:'Tärkeä',arkistoitu:'Arkistoitu'}[tila]||tila;
+    h+='<span class="tila-badge '+cls+'">'+lbl+'</span>';
+  }
+  h+='<span class="merk-card-date">'+esc(m.paivamaara||m.luotu?.slice(0,10)||'')+'</span>';
+  h+='</div>';
+  if(m.sisalto){
+    h+='<div class="merk-card-body">'+m.sisalto+'</div>';
+  }
+  if(m.tagit){
+    h+='<div class="merk-tags">';
+    m.tagit.split(',').map(function(t){return t.trim();}).filter(Boolean).forEach(function(t){
+      h+='<span class="merk-tag">'+esc(t)+'</span>';
+    });
+    h+='</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+/* ═══ NEW MERKINTA ═══ */
+var pendingImages=[];
+function showNewMerkinta(){
+  pendingImages=[];
+  var devs=query("SELECT id,nimi FROM kohde WHERE projekti_id=? ORDER BY nimi",[selectedProjectId]);
+  var h='<button class="back-btn" onclick="renderView()">'+mi('arrow_back')+' Takaisin</button>';
+  h+='<h3 style="margin-bottom:12px">Uusi merkintä</h3>';
+  h+='<div class="form-group"><label>Otsikko</label><input type="text" id="nm-otsikko" placeholder="Otsikko"></div>';
+  h+='<div class="form-row">';
+  h+='<div class="form-group"><label>Tyyppi</label><select id="nm-tyyppi"><option value="muistiinpano">Muistiinpano</option><option value="kayntiraportti">Käyntiraportti</option><option value="kayttoonotto">Käyttöönotto</option><option value="vikaraportti">Vikaraportti</option><option value="huomio">Huomio</option><option value="tehtava">Tehtävä</option><option value="muu">Muu</option></select></div>';
+  h+='<div class="form-group"><label>Tila</label><select id="nm-tila"><option value="aktiivinen">Aktiivinen</option><option value="valmis">Valmis</option><option value="vanhentunut">Vanhentunut</option><option value="tarkea">Tärkeä</option><option value="arkistoitu">Arkistoitu</option></select></div>';
+  h+='</div>';
+  h+='<div class="form-group"><label>Päivämäärä</label><input type="date" id="nm-pvm" value="'+now().slice(0,10)+'"></div>';
+  if(devs.length){
+    h+='<div class="form-group"><label>Laite (valinnainen)</label><select id="nm-kohde"><option value="">— Projektitason merkintä —</option>';
+    devs.forEach(function(d){h+='<option value="'+d.id+'">'+esc(d.nimi)+'</option>';});
+    h+='</select></div>';
+  }
+  h+='<div class="form-group"><label>Sisältö</label><textarea id="nm-sisalto" placeholder="Kirjoita tähän..."></textarea></div>';
+  h+='<div class="form-group"><label>Kuva</label>';
+  h+='<input type="file" id="nm-image" accept="image/*" capture="environment" onchange="addImage(this)" style="display:none">';
+  h+='<button class="btn-secondary" onclick="document.getElementById(\'nm-image\').click()">'+mi('photo_camera')+' Ota kuva tai valitse</button>';
+  h+='<div class="img-preview" id="nm-images"></div></div>';
+  h+='<div class="form-group"><label>Tagit</label><input type="text" id="nm-tagit" placeholder="tagi1, tagi2"></div>';
+  h+='<button class="btn-primary" onclick="saveNewMerkinta()">Tallenna</button>';
+  document.getElementById('content').innerHTML=h;
+  document.getElementById('fab').classList.add('hidden');
+  document.getElementById('nm-otsikko').focus();
+}
+async function addImage(input){
+  if(!input.files.length)return;
+  if(pendingImages.length>=IMG_MAX_PER_MERKINTA){toast('Max '+IMG_MAX_PER_MERKINTA+' kuvaa','error');return;}
+  try{
+    var url=await processImageFile(input.files[0]);
+    pendingImages.push(url);
+    renderImagePreviews();
+  }catch(e){toast(e.message,'error');}
+  input.value='';
+}
+function removeImage(idx){pendingImages.splice(idx,1);renderImagePreviews();}
+function renderImagePreviews(){
+  var h='';
+  pendingImages.forEach(function(url,i){
+    h+='<div class="img-thumb"><img src="'+url+'"><button class="img-remove" onclick="removeImage('+i+')">×</button></div>';
+  });
+  document.getElementById('nm-images').innerHTML=h;
+}
+function saveNewMerkinta(){
+  var otsikko=(document.getElementById('nm-otsikko').value||'').trim();
+  if(!otsikko){toast('Otsikko on pakollinen','error');return;}
+  var sisalto=esc(document.getElementById('nm-sisalto').value||'').replace(/\n/g,'<br>');
+  // Liitä kuvat sisältöön
+  pendingImages.forEach(function(url){sisalto+='<p><img src="'+url+'" style="max-width:100%"></p>';});
+  var kohdeEl=document.getElementById('nm-kohde');
+  saveMerkinta(null,{
+    projekti_id:selectedProjectId,
+    kohde_id:kohdeEl?kohdeEl.value||null:null,
+    otsikko:otsikko,
+    sisalto:sisalto,
+    tyyppi:document.getElementById('nm-tyyppi').value,
+    tila:document.getElementById('nm-tila').value,
+    paivamaara:document.getElementById('nm-pvm').value,
+    tagit:document.getElementById('nm-tagit').value||''
+  });
+  pendingImages=[];
+  toast('Merkintä tallennettu','success');
+  currentTab='merkinnat';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab==='merkinnat'));
+  renderView();
+}
+
+/* ═══ SEARCH ═══ */
+function renderSearch(){
+  var h='<input class="search-input" id="search-q" placeholder="Hae laitteista, tunnisteista, merkinnöistä..." oninput="doSearch()">';
+  h+='<div id="search-results"></div>';
+  document.getElementById('content').innerHTML=h;
+  document.getElementById('search-q').focus();
+}
+function doSearch(){
+  var q=(document.getElementById('search-q').value||'').trim().toLowerCase();
+  if(q.length<2){document.getElementById('search-results').innerHTML='';return;}
+  var like='%'+q+'%';
+  var h='';
+  // Laitteet
+  var devs=query("SELECT * FROM kohde WHERE projekti_id=? AND (LOWER(nimi) LIKE ? OR LOWER(valmistaja) LIKE ? OR LOWER(malli) LIKE ? OR LOWER(osoite) LIKE ?) LIMIT 10",[selectedProjectId,like,like,like,like]);
+  if(devs.length){
+    h+='<div class="search-group">Laitteet ('+devs.length+')</div>';
+    devs.forEach(function(k){
+      h+='<div class="card" onclick="showDevice(\''+k.id+'\');switchTab(\'laitteet\')"><div class="card-title" style="display:flex;align-items:center;gap:6px"><span style="color:var(--accent)">'+kohdeIcon(k.tyyppi)+'</span>'+esc(k.nimi)+'</div>';
+      var mfg=[k.valmistaja,k.malli].filter(Boolean).join(' ');
+      if(mfg) h+='<div class="card-sub">'+esc(mfg)+'</div>';
+      h+='</div>';
+    });
+  }
+  // Tunnisteet
+  var creds=query("SELECT t.*, k.nimi as kohde_nimi FROM tunniste t LEFT JOIN kohde k ON t.kohde_id=k.id WHERE t.projekti_id=? OR t.kohde_id IN (SELECT id FROM kohde WHERE projekti_id=?) AND (LOWER(t.palvelu) LIKE ? OR LOWER(t.kayttajatunnus) LIKE ?) LIMIT 10",[selectedProjectId,selectedProjectId,like,like]);
+  if(creds.length){
+    h+='<div class="search-group">Tunnisteet ('+creds.length+')</div>';
+    creds.forEach(function(t){
+      h+='<div class="card"><div class="card-title">'+esc(t.palvelu||t.tyyppi)+'</div><div class="card-sub">'+esc(t.kayttajatunnus||'')+' · '+esc(t.kohde_nimi||'')+'</div>';
+      h+='<div class="cred-actions" style="margin-top:6px"><button onclick="event.stopPropagation();copyPw(\''+t.id+'\')">'+mi('key')+' Salasana</button><button onclick="event.stopPropagation();copyUser(\''+t.id+'\')">'+mi('person')+' Tunnus</button></div></div>';
+    });
+  }
+  // Merkinnät
+  var merks=query("SELECT * FROM merkinta WHERE projekti_id=? AND (LOWER(otsikko) LIKE ? OR LOWER(sisalto) LIKE ? OR LOWER(tagit) LIKE ?) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 10",[selectedProjectId,like,like,like]);
+  if(merks.length){
+    h+='<div class="search-group">Merkinnät ('+merks.length+')</div>';
+    merks.forEach(function(m){ h+=renderMerkCard(m); });
+  }
+  if(!h) h='<div class="empty" style="padding-top:20px">Ei tuloksia</div>';
+  document.getElementById('search-results').innerHTML=h;
+}
+
+/* ═══ INIT ═══ */
+window.addEventListener('beforeunload',function(e){if(dbDirty){e.preventDefault();e.returnValue='';}});
+init();
+</script>
+</body>
+</html>
