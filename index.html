@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 23.3.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 24.3.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -1657,6 +1657,7 @@ const MIGRATIONS = [
   { version: 13, up: "ALTER TABLE projekti_henkilo ADD COLUMN tulosta INTEGER DEFAULT 1;" },
   { version: 14, up: "ALTER TABLE merkinta ADD COLUMN ai_tiivistelma TEXT;" },
   { version: 15, up: "ALTER TABLE merkinta ADD COLUMN tila TEXT DEFAULT 'aktiivinen'; UPDATE merkinta SET tila='valmis' WHERE korjattu IS NOT NULL;" },
+  { version: 16, up: "ALTER TABLE merkinta ADD COLUMN kohde_id TEXT;" },
 ];
 
 function initDb(data) {
@@ -2404,7 +2405,7 @@ function renderProject(p) {
   }
 
   // Merkinnät section
-  const _allMerkRaw = query("SELECT * FROM merkinta WHERE projekti_id=? ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
+  const _allMerkRaw = query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
   const _merkPinned = getPinnedMerkinnat();
   const allMerkinnat = _merkPinned.map(function(id){ return _allMerkRaw.find(function(m){ return m.id===id; }); }).filter(Boolean).concat(_allMerkRaw.filter(function(m){ return _merkPinned.indexOf(m.id) < 0; }));
   const merkCollapsed = sectionCollapsed['merkinnat'];
@@ -2459,7 +2460,8 @@ function renderKohdeNode(k) {
   const tunnisteet = query("SELECT * FROM tunniste WHERE kohde_id=? ORDER BY palvelu", [k.id]);
   const children = query("SELECT * FROM kohde WHERE parent_id=? ORDER BY nimi", [k.id]);
   const icon = kohdeIcon(k.tyyppi);
-  const hasContent = tunnisteet.length > 0 || children.length > 0;
+  const _kohdeHasMerk = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=?",[k.id])[0].c > 0;
+  const hasContent = tunnisteet.length > 0 || children.length > 0 || _kohdeHasMerk;
 
   let html = '<div class="kohde-node'+(isOpen?' expanded':'')+'" data-kohde-id="'+k.id+'">';
 
@@ -2483,6 +2485,8 @@ function renderKohdeNode(k) {
   if (k.ai_tiedot) html += '<span class="kohde-ai-btn" onclick="event.stopPropagation();var el=document.getElementById(\'ai-info-'+k.id+'\');if(el){el.classList.toggle(\'hidden\')}" title="AI-tiedot" style="font-size:14px;color:var(--accent);cursor:pointer;opacity:0.5;margin-left:4px;display:inline-flex;align-items:center">'+mi('auto_awesome')+'</span>';
   const credCount = tunnisteet.length + children.reduce((s,c) => s + query("SELECT COUNT(*) as c FROM tunniste WHERE kohde_id=?",[c.id])[0].c, 0);
   if (credCount) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:4px;display:inline-flex;align-items:center;gap:2px">'+credCount+' <span class="material-icons" style="font-size:14px">key</span></span>';
+  var kohdeMerkCount = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=?",[k.id])[0].c;
+  if (kohdeMerkCount) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:4px;display:inline-flex;align-items:center;gap:2px">'+kohdeMerkCount+' <span class="material-icons" style="font-size:14px">sticky_note_2</span></span>';
   var kohdePrintOn = k.tulosta !== 0 && k.tulosta !== '0';
   html += '<span class="merkinta-print-toggle '+(kohdePrintOn?'on':'off')+'" onclick="event.stopPropagation();toggleKohdePrint(\''+k.id+'\')" title="'+(kohdePrintOn?'Mukana PDF-raportissa — klikkaa piilottaaksesi':'Ei mukana PDF-raportissa — klikkaa lisätäksesi')+'">'+mi('print')+'</span>';
   // ⋮ valikko
@@ -2492,6 +2496,7 @@ function renderKohdeNode(k) {
   html += '<a onclick="closeKohdeMenu();openForm(\'kohde\',\''+k.id+'\')">'+mi('edit')+' Muokkaa</a>';
   html += '<a onclick="closeKohdeMenu();openForm(\'tunniste\',null,{kohde_id:\''+k.id+'\'})">'+mi('key')+' Lisää tunniste</a>';
   html += '<a onclick="closeKohdeMenu();openForm(\'kohde\',null,\''+k.projekti_id+'\',\''+k.id+'\')">'+mi('create_new_folder')+' Lisää alalaite</a>';
+  html += '<a onclick="closeKohdeMenu();openKohdeMerkinta(\''+k.id+'\',\''+k.projekti_id+'\')">'+mi('sticky_note_2')+' Lisää merkintä</a>';
   html += '<a onclick="closeKohdeMenu();openCloneKohde(\''+k.id+'\')">'+mi('file_copy')+' Kopioi laite</a>';
   html += '<a onclick="closeKohdeMenu();aiDeviceInfo(\''+k.id+'\')" style="color:var(--accent)">'+mi('auto_awesome')+' Kysy AI:lta</a>';
   html += '<a class="menu-danger" onclick="closeKohdeMenu();deleteKohde(\''+k.id+'\')">'+mi('delete')+' Poista</a>';
@@ -2514,6 +2519,42 @@ function renderKohdeNode(k) {
     tunnisteet.forEach(t => { html += renderCredRow(t); });
     html += '</div>';
   }
+
+  // Laitekohtaiset merkinnät
+  var kohdeMerkinnat = isOpen ? query("SELECT * FROM merkinta WHERE kohde_id=? ORDER BY COALESCE(paivamaara,luotu) DESC", [k.id]) : [];
+  html += '<div class="kohde-merkinnat" id="kohde-merkinnat-'+k.id+'" style="padding:0 0 0 36px">';
+  if (kohdeMerkinnat.length) {
+    kohdeMerkinnat.forEach(function(m) {
+      var mColor = merkintaColor(m.tyyppi);
+      var mTila = m.tila || 'aktiivinen';
+      var mExpanded = expandedMerkCards[m.id];
+      html += '<div class="merkinta-card'+(mTila!=='aktiivinen'?' tila-'+mTila:'')+(mExpanded?'':' collapsed')+'" data-merkinta-id="'+m.id+'" style="border-left-color:'+mColor+';margin:4px 0;font-size:12px">';
+      html += '<div class="merkinta-card-header" style="min-height:28px">';
+      html += '<span class="merkinta-card-collapse'+(mExpanded?'':' collapsed')+'" onclick="event.stopPropagation();toggleMerkintaCard(\''+m.id+'\')">'+mi('expand_more')+'</span>';
+      html += '<span class="merkinta-type-icon" style="color:'+mColor+';font-size:14px">'+merkintaIcon(m.tyyppi)+'</span>';
+      html += '<span class="merkinta-card-title" style="font-size:12px">'+esc(m.otsikko)+'</span>';
+      if (mTila !== 'aktiivinen') html += tilaBadgeHtml(mTila);
+      html += '<span class="merkinta-card-date">'+esc(m.paivamaara||m.luotu?.slice(0,10)||'')+'</span>';
+      html += '<span class="kohde-menu-wrap" onclick="event.stopPropagation()">';
+      html += '<button class="btn btn-ghost btn-sm kohde-menu-btn" onclick="toggleKohdeMenu(\'km-'+m.id+'\')" title="Toiminnot">'+mi('more_vert')+'</button>';
+      html += '<div class="kohde-menu" id="kohde-menu-km-'+m.id+'">';
+      html += '<a onclick="closeKohdeMenu();editMerkintaInline(\''+m.id+'\')">'+mi('edit')+' Muokkaa</a>';
+      html += '<a class="menu-danger" onclick="closeKohdeMenu();deleteMerkinta(\''+m.id+'\')">'+mi('delete')+' Poista</a>';
+      html += '</div></span></div>';
+      if (m.sisalto) {
+        html += '<div class="merkinta-card-body">'+renderSisalto(m.sisalto)+'</div>';
+      }
+      if (m.tagit) {
+        html += '<div class="merkinta-card-tags">';
+        m.tagit.split(',').map(function(t){return t.trim();}).filter(Boolean).forEach(function(t) {
+          html += '<span class="merkinta-tag">'+esc(t)+'</span>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+    });
+  }
+  html += '</div>';
 
   // Body (collapsible) - sub-kohteet only
   if (children.length) {
@@ -2618,17 +2659,19 @@ function saveMerkinta(id, data) {
     const existing = query("SELECT id FROM merkinta WHERE id=?",[id]);
     if (existing.length) {
       const aiPiilota = data.ai_piilota !== undefined ? ', ai_piilota=?' : '';
+      const kohdeUpd = data.kohde_id !== undefined ? ', kohde_id=?' : '';
       const params = [data.projekti_id||null, data.tyyppi||'muistiinpano', data.otsikko, data.sisalto||'', data.paivamaara||t.slice(0,10), data.tagit||'', tila, t];
       if (data.ai_piilota !== undefined) params.push(data.ai_piilota ? 1 : 0);
+      if (data.kohde_id !== undefined) params.push(data.kohde_id || null);
       params.push(id);
-      run("UPDATE merkinta SET projekti_id=?, tyyppi=?, otsikko=?, sisalto=?, paivamaara=?, tagit=?, tila=?, muokattu=?, ai_tiivistelma=NULL"+aiPiilota+korjattuSync+" WHERE id=?", params);
+      run("UPDATE merkinta SET projekti_id=?, tyyppi=?, otsikko=?, sisalto=?, paivamaara=?, tagit=?, tila=?, muokattu=?, ai_tiivistelma=NULL"+aiPiilota+kohdeUpd+korjattuSync+" WHERE id=?", params);
       return id;
     }
   }
   const newId = id || uuid();
   const korjattuVal = tila === 'valmis' ? t : null;
-  run("INSERT INTO merkinta(id,projekti_id,tyyppi,otsikko,sisalto,paivamaara,tagit,tila,korjattu,ai_piilota,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-    [newId, data.projekti_id||null, data.tyyppi||'muistiinpano', data.otsikko, data.sisalto||'', data.paivamaara||t.slice(0,10), data.tagit||'', tila, korjattuVal, data.ai_piilota?1:0, t, t]);
+  run("INSERT INTO merkinta(id,projekti_id,kohde_id,tyyppi,otsikko,sisalto,paivamaara,tagit,tila,korjattu,ai_piilota,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    [newId, data.projekti_id||null, data.kohde_id||null, data.tyyppi||'muistiinpano', data.otsikko, data.sisalto||'', data.paivamaara||t.slice(0,10), data.tagit||'', tila, korjattuVal, data.ai_piilota?1:0, t, t]);
   return newId;
 }
 
@@ -3091,6 +3134,61 @@ function cancelMerkintaInline(projektiId) {
   destroyQuill('mi-sisalto-'+projektiId);
   const el = document.getElementById('merkinta-inline-'+projektiId);
   if (el) el.remove();
+}
+
+function openKohdeMerkinta(kohdeId, projektiId) {
+  // Varmista laite on laajennettu
+  if (!expandedKohteet[kohdeId]) { expandedKohteet[kohdeId] = true; renderContent(); }
+  setTimeout(function() {
+    var container = document.getElementById('kohde-merkinnat-'+kohdeId);
+    if (!container) return;
+    if (document.getElementById('merkinta-inline-km-'+kohdeId)) return;
+    var formKey = 'km-'+kohdeId;
+    var h = '<div class="merkinta-inline-form" id="merkinta-inline-'+formKey+'" style="margin:6px 0 6px 36px">' +
+      '<div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:8px">' +
+        '<div style="flex:0 0 auto"><label style="font-size:11px;color:var(--text-muted)">Tyyppi</label>' +
+          '<select id="mi-tyyppi-'+formKey+'"><option value="muistiinpano">Muistiinpano</option><option value="kayntiraportti">Käyntiraportti</option><option value="kayttoonotto">Käyttöönotto</option><option value="vikaraportti">Vikaraportti</option><option value="huomio">Huomio</option><option value="tehtava">Tehtävä</option><option value="muu">Muu</option></select></div>' +
+        '<div style="flex:0 0 auto"><label style="font-size:11px;color:var(--text-muted)">Tila</label>' +
+          tilaSelectHtml('mi-tila-'+formKey, 'aktiivinen') + '</div>' +
+        '<div style="flex:0 0 auto"><label style="font-size:11px;color:var(--text-muted)">Päivämäärä</label>' +
+          '<input type="date" id="mi-pvm-'+formKey+'" value="'+now().slice(0,10)+'"></div>' +
+        '<div style="flex:1 1 120px"><label style="font-size:11px;color:var(--text-muted)">Tagit</label>' +
+          '<input type="text" id="mi-tagit-'+formKey+'" placeholder="tagi1, tagi2"></div>' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-left:auto">' +
+          '<button class="btn btn-sm" onclick="cancelMerkintaInline(\''+formKey+'\')">Peruuta</button>' +
+          '<button class="btn btn-sm btn-primary" onclick="saveKohdeMerkinta(\''+kohdeId+'\',\''+projektiId+'\')">Tallenna</button>' +
+        '</div>' +
+      '</div>' +
+      '<input type="text" id="mi-otsikko-'+formKey+'" placeholder="Merkinnän otsikko...">' +
+      '<div class="img-quality-bar" style="margin-top:6px"><span class="material-icons" style="font-size:13px">photo_size_select_large</span> Kuvan koko: ' +
+        Object.keys(IMG_QUALITY_PRESETS).map(function(k){ var p=IMG_QUALITY_PRESETS[k]; return '<button data-q="'+k+'" onclick="setImgQuality(\''+k+'\')"'+(getImgQuality()===k?' class="active"':'')+'>'+p.label+' <span style="color:var(--text-muted);font-size:10px">'+p.maxW+'px</span></button>'; }).join('') +
+      '</div>' +
+      '<div id="mi-sisalto-'+formKey+'" style="margin-top:6px"></div>' +
+    '</div>';
+    container.insertAdjacentHTML('beforeend', h);
+    initQuill('mi-sisalto-'+formKey);
+    initTagAutocomplete('mi-tagit-'+formKey);
+    document.getElementById('mi-otsikko-'+formKey)?.focus();
+  }, 100);
+}
+function saveKohdeMerkinta(kohdeId, projektiId) {
+  var formKey = 'km-'+kohdeId;
+  var otsikko = document.getElementById('mi-otsikko-'+formKey)?.value?.trim();
+  if (!otsikko) { toast('Otsikko on pakollinen','error'); return; }
+  var data = {
+    projekti_id: projektiId || null,
+    kohde_id: kohdeId,
+    otsikko: otsikko,
+    sisalto: getQuillContent('mi-sisalto-'+formKey),
+    tyyppi: document.getElementById('mi-tyyppi-'+formKey)?.value || 'muistiinpano',
+    tila: document.getElementById('mi-tila-'+formKey)?.value || 'aktiivinen',
+    paivamaara: document.getElementById('mi-pvm-'+formKey)?.value || now().slice(0,10),
+    tagit: document.getElementById('mi-tagit-'+formKey)?.value || ''
+  };
+  destroyQuill('mi-sisalto-'+formKey);
+  saveMerkinta(null, data);
+  toast('Laitemerkintä tallennettu','success');
+  renderContent();
 }
 
 function showMerkintaInlineForm(projektiId) {
@@ -4646,7 +4744,7 @@ function deleteProjekti(id) {
 }
 
 function deleteKohde(id) {
-  if (!confirm('Poistetaanko laite ja kaikki sen tunnisteet ja alalaitteet?')) return;
+  if (!confirm('Poistetaanko laite ja kaikki sen tunnisteet, merkinnät ja alalaitteet?')) return;
   deleteKohdeRec(id);
   run("DELETE FROM kohde WHERE id=?",[id]);
   toast('Laite poistettu','success');
@@ -4654,6 +4752,7 @@ function deleteKohde(id) {
 }
 function deleteKohdeRec(id) {
   run("DELETE FROM tunniste WHERE kohde_id=?",[id]);
+  run("DELETE FROM merkinta WHERE kohde_id=?",[id]);
   query("SELECT id FROM kohde WHERE parent_id=?",[id]).forEach(c => {
     deleteKohdeRec(c.id);
     run("DELETE FROM kohde WHERE id=?",[c.id]);
