@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.9.1';
+var APP_VERSION = '2.0.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -310,7 +310,7 @@ function processImageFile(file){var preset=IMG_QUALITY_PRESETS[getImgQuality()]|
 function saveMerkinta(id,data){var t=now();var tila=data.tila||'aktiivinen';var ks=tila==='valmis'?", korjattu=COALESCE(korjattu, '"+t+"')":', korjattu=NULL';if(id){var ex=query("SELECT id FROM merkinta WHERE id=?",[id]);if(ex.length){var p=[data.projekti_id||null,data.tyyppi||'muistiinpano',data.otsikko,data.sisalto||'',data.paivamaara||t.slice(0,10),data.tagit||'',tila,t];var kohdeUpd=data.kohde_id!==undefined?', kohde_id=?':'';if(data.kohde_id!==undefined)p.push(data.kohde_id||null);p.push(id);run("UPDATE merkinta SET projekti_id=?, tyyppi=?, otsikko=?, sisalto=?, paivamaara=?, tagit=?, tila=?, muokattu=?, ai_tiivistelma=NULL"+kohdeUpd+ks+" WHERE id=?",p);return id;}}var nid=id||uuid();var kv=tila==='valmis'?t:null;run("INSERT INTO merkinta(id,projekti_id,kohde_id,tyyppi,otsikko,sisalto,paivamaara,tagit,tila,korjattu,ai_piilota,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",[nid,data.projekti_id||null,data.kohde_id||null,data.tyyppi||'muistiinpano',data.otsikko,data.sisalto||'',data.paivamaara||t.slice(0,10),data.tagit||'',tila,kv,0,t,t]);return nid;}
 
 /* ═══ NAVIGATION ═══ */
-function switchTab(tab){currentTab=tab;deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});renderView();}
+function switchTab(tab){if(!_handlingBack)navPush();currentTab=tab;deviceDetailId=null;document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===tab);});renderView();}
 function updateExportBadge(){
   var ids=getMobileMerkinnat();
   var el=document.getElementById('export-badge');
@@ -359,6 +359,7 @@ function filterProjects(){
   document.querySelectorAll('.proj-list .card').forEach(function(c){c.style.display=c.textContent.toLowerCase().indexOf(q)>=0?'':'none';});
 }
 function selectProject(id){
+  if(!_handlingBack)navPush();
   selectedProjectId=id;
   localStorage.setItem('tietoholvi_mobile_project',id);
   document.getElementById('tabs').style.display='';
@@ -392,7 +393,7 @@ function renderDeviceList(){
 }
 
 /* ═══ DEVICE DETAIL ═══ */
-function showDevice(id){deviceDetailId=id;renderDeviceDetail();}
+function showDevice(id){if(!_handlingBack)navPush();deviceDetailId=id;renderDeviceDetail();}
 function renderDeviceDetail(){
   var k=query("SELECT * FROM kohde WHERE id=?",[deviceDetailId]);
   if(!k.length){deviceDetailId=null;renderDeviceList();return;}
@@ -505,6 +506,7 @@ function renderMerkCard(m, isPinned){
 /* ═══ NEW MERKINTA ═══ */
 var pendingImages=[];
 function showNewMerkinta(){
+  if(!_handlingBack)navPush();
   pendingImages=[];
   var devs=query("SELECT id,nimi FROM kohde WHERE projekti_id=? ORDER BY nimi",[selectedProjectId]);
   var h='<button class="back-btn" onclick="renderView()">'+mi('arrow_back')+' Takaisin</button>';
@@ -716,85 +718,80 @@ document.addEventListener('click', function(e) {
 });
 
 /* ═══ HISTORY / BACK BUTTON ═══ */
-var _navStack = []; // oma navigaatiopino
+// Yksinkertainen lähestymistapa: pidetään aina 2 history-merkintää
+// niin back-nappi laukaisi popstate ja pysytään sovelluksessa.
 var _handlingBack = false;
+var _historyDepth = 0;
 
-function navPush(state) {
-  _navStack.push(state);
-  history.pushState({idx: _navStack.length}, '');
+function navPush() {
+  _historyDepth++;
+  history.pushState({d: _historyDepth}, '');
 }
 
-function navBack() {
-  if (_navStack.length === 0) return;
-  var prev = _navStack.pop();
+function goBack() {
+  // Katsotaan nykyinen tila ja mennään "ylös" hierarkiassa
   _handlingBack = true;
-  if (prev.view === 'projects') {
-    selectedProjectId = null;
-    showProjectSelector();
-  } else if (prev.view === 'deviceDetail') {
-    deviceDetailId = null;
-    currentTab = 'laitteet';
-    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
+
+  // Kuvan katselu auki → sulje se
+  var viewer = document.querySelector('.img-viewer');
+  if (viewer) { viewer.remove(); _handlingBack = false; return; }
+
+  // Uusi merkintä -lomake → takaisin nykyiseen tabiin
+  if (document.querySelector('.back-btn') && currentTab === 'laitteet' && !deviceDetailId) {
+    // Oltiin merkintälomakkeessa ilman laitetta
     renderView();
-  } else if (prev.view === 'laitteet' || prev.view === 'deviceList') {
-    deviceDetailId = null;
-    currentTab = 'laitteet';
-    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
-    renderView();
-  } else if (prev.view === 'merkinnat') {
-    currentTab = 'merkinnat';
-    deviceDetailId = null;
-    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='merkinnat'); });
-    renderView();
-  } else if (prev.view === 'haku') {
-    currentTab = 'haku';
-    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='haku'); });
-    renderView();
-  } else {
-    renderView();
+    _handlingBack = false;
+    return;
   }
+
+  // Laitedetalji → laitelista
+  if (deviceDetailId) {
+    deviceDetailId = null;
+    currentTab = 'laitteet';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
+    renderView();
+    _handlingBack = false;
+    return;
+  }
+
+  // Merkinnät tai haku → laitteet (oletusnäkymä)
+  if (currentTab !== 'laitteet' && selectedProjectId) {
+    currentTab = 'laitteet';
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab==='laitteet'); });
+    renderView();
+    _handlingBack = false;
+    return;
+  }
+
+  // Laitelista → projektivalitsin
+  if (selectedProjectId) {
+    selectedProjectId = null;
+    localStorage.removeItem('tietoholvi_mobile_project');
+    showProjectSelector();
+    _handlingBack = false;
+    return;
+  }
+
+  // Projektivalitsin — ollaan pohjalla, ei voi mennä taaksepäin
   _handlingBack = false;
 }
 
 window.addEventListener('popstate', function(e) {
-  if (_navStack.length > 0) {
-    navBack();
-  } else {
-    // Ollaan pohjalla — estetään poistuminen
-    history.pushState({idx: 0}, '');
+  _historyDepth = Math.max(0, _historyDepth - 1);
+  goBack();
+  // Puskaa aina uusi tila niin back toimii uudelleen
+  if (_historyDepth < 1) {
+    _historyDepth = 1;
+    history.pushState({d: 1}, '');
   }
 });
 
-// Puskee tilan pinoon kun käyttäjä navigoi eteenpäin
-var _origSelectProject = selectProject;
-selectProject = function(id) {
-  if (!_handlingBack) navPush({view: 'projects'});
-  _origSelectProject(id);
-};
-var _origShowDevice = showDevice;
-showDevice = function(id) {
-  if (!_handlingBack) navPush({view: 'deviceList'});
-  _origShowDevice(id);
-};
-var _origShowProjectSelector = showProjectSelector;
-showProjectSelector = function() {
-  _origShowProjectSelector();
-};
-var _origSwitchTab = switchTab;
-switchTab = function(tab) {
-  if (!_handlingBack) navPush({view: currentTab});
-  _origSwitchTab(tab);
-};
-var _origShowNewMerkinta = showNewMerkinta;
-showNewMerkinta = function() {
-  if (!_handlingBack) navPush({view: currentTab});
-  _origShowNewMerkinta();
-};
-
 /* ═══ INIT ═══ */
 window.addEventListener('beforeunload', function(e) { if (dbDirty) { e.preventDefault(); e.returnValue = ''; } });
-// Alkutila — estää heti poistumisen
-history.replaceState({idx: 0}, '');
+// Alkutilat: 2 merkintää jotta ensimmäinen back ei poistu sovelluksesta
+history.replaceState({d: 0}, '');
+history.pushState({d: 1}, '');
+_historyDepth = 1;
 document.getElementById('version-label').textContent='Mobiili v'+APP_VERSION;
 init();
 </script>
