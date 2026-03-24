@@ -124,7 +124,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 .back-btn { display:flex; align-items:center; gap:4px; color:var(--accent); font-size:14px; cursor:pointer; margin-bottom:12px; background:none; border:none; padding:4px 0; }
 /* Toast */
 .toast-container { position:fixed; top:56px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:6px; }
-.toast { padding:10px 18px; border-radius:8px; font-size:13px; animation:fadeIn .2s; }
+.toast { padding:14px 20px; border-radius:8px; font-size:15px; animation:fadeIn .2s; max-width:90vw; word-break:break-word; }
 .toast.success { background:var(--success); color:#1a4731; }
 .toast.error { background:var(--error); color:#fff; }
 .toast.info { background:var(--info); color:#1a2a4a; }
@@ -188,7 +188,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '1.6.2';
+var APP_VERSION = '1.6.3';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -199,7 +199,7 @@ function uuid() { if(crypto.randomUUID) return crypto.randomUUID(); return 'xxxx
 function now() { return new Date().toISOString(); }
 function esc(s) { if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function mi(n) { return '<span class="material-icons">'+n+'</span>'; }
-function toast(msg,type) { var d=document.createElement('div'); d.className='toast '+(type||'info'); d.textContent=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),type==='error'?6000:3000); }
+function toast(msg,type) { var d=document.createElement('div'); d.className='toast '+(type||'info'); d.textContent=msg; document.getElementById('toast-container').appendChild(d); setTimeout(()=>d.remove(),type==='error'?10000:6000); }
 
 /* ═══ ENCRYPTION ═══ */
 async function deriveKey(password,salt){const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
