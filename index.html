@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 24.3.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 25.3.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -922,7 +922,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .kohde-node:not(.expanded) .kohde-ai-btn,
     .kohde-node:not(.expanded) > .kohde-extra-info,
     .kohde-node:not(.expanded) > .kohde-ai-info,
-    .kohde-node:not(.expanded) > .cred-list { display: none !important; }
+    .kohde-node:not(.expanded) > .cred-list,
+    .kohde-node:not(.expanded) > .kohde-merkinnat { display: none !important; }
     /* Kolme pistettä -valikko */
     .kohde-menu-wrap { position: relative; display: inline-flex; align-items: center; margin-left: 8px; }
     .kohde-menu-btn { color: var(--text-dim); }
@@ -6599,38 +6600,38 @@ async function insertTestData() {
 
   // Kohteet: P23534
   const k1 = uuid(), k1b = uuid(), k2 = uuid(), k3 = uuid(), k4 = uuid(), k5 = uuid();
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k1,p1,null,'Prosessipalvelin','palvelin','','192.168.10.10','WinCC Unified -palvelin','Dell PowerEdge R750, Windows Server 2022',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k1b,p1,k1,'Tietokantapalvelin','palvelin','','192.168.10.11','SQL Server -historian','Dell PowerEdge R650, Windows Server 2022',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k2,p1,null,'PLC Keittämö','plc','Siemens','192.168.10.50','Siemens S7-1500 CPU 1516-3 PN/DP','Tilausnro: 6ES7516-3AN02-0AB0, FW V3.0',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k3,p1,null,'PLC Pesu & Valkaisu','plc','Siemens','192.168.10.51','Siemens S7-1500 CPU 1515-2 PN','',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k4,p1,null,'Valvomo-PC','palvelin','Siemens','192.168.10.100','WinCC Unified Comfort Panel','Siemens TP1900 Comfort',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k5,p1,null,'VPN-yhdyskäytävä','vpn','','10.0.0.1','Toradex Site-to-Site VPN','Etäyhteys huoltoa varten',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k1,p1,null,'Prosessipalvelin','palvelin','Dell','PowerEdge R750','192.168.10.10','WinCC Unified -palvelin','Windows Server 2022',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k1b,p1,k1,'Tietokantapalvelin','palvelin','Dell','PowerEdge R650','192.168.10.11','SQL Server -historian','Windows Server 2022',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k2,p1,null,'PLC Keittämö','plc','Siemens','S7-1500 CPU 1516-3 PN/DP','192.168.10.50','Keittämön ohjaus','Tilausnro: 6ES7516-3AN02-0AB0, FW V3.0',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k3,p1,null,'PLC Pesu & Valkaisu','plc','Siemens','S7-1500 CPU 1515-2 PN','192.168.10.51','Pesemön ja valkaisun ohjaus','',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k4,p1,null,'Valvomo-PC','palvelin','Siemens','TP1900 Comfort','192.168.10.100','WinCC Unified Comfort Panel','',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k5,p1,null,'VPN-yhdyskäytävä','vpn','Toradex','','10.0.0.1','Site-to-Site VPN','Etäyhteys huoltoa varten',now(),now()]);
 
   // Kohteet: P23601
   const k6 = uuid(), k7 = uuid(), k8 = uuid(), k11 = uuid(), k12 = uuid();
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k6,p2,null,'Prosessiohjain','plc','ABB','172.16.0.50','ABB AC500 PM5675','Valssauslinja 1',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k7,p2,null,'SCADA-palvelin','palvelin','ABB','172.16.0.10','ABB 800xA palvelin','Windows Server 2019',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k8,p2,null,'Verkkokytkin K1','verkkolaite','Cisco','172.16.0.1','Cisco IE-4010-4S24P','Automaatioverkon pääkytkin',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k11,p2,null,'Taajuusmuuttaja VSD1','taajuusmuuttaja','ABB','172.16.0.60','ABB ACS880-01','Valssausmoottorin ohjaus, 250kW',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k12,p2,null,'Palomuuri FW1','palomuuri','Siemens','172.16.0.254','Siemens SCALANCE S615','OT/IT-verkon rajapinta',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k6,p2,null,'Prosessiohjain','plc','ABB','AC500 PM5675','172.16.0.50','Valssauslinjan ohjaus','Valssauslinja 1',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k7,p2,null,'SCADA-palvelin','palvelin','ABB','800xA Server','172.16.0.10','800xA-valvomopalvelin','Windows Server 2019',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k8,p2,null,'Verkkokytkin K1','verkkolaite','Cisco','IE-4010-4S24P','172.16.0.1','Automaatioverkon pääkytkin','',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k11,p2,null,'Taajuusmuuttaja VSD1','taajuusmuuttaja','ABB','ACS880-01','172.16.0.60','Valssausmoottorin ohjaus','250kW',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k12,p2,null,'Palomuuri FW1','palomuuri','Siemens','SCALANCE S615','172.16.0.254','OT/IT-verkon rajapinta','',now(),now()]);
 
   // Kohteet: P23712
   const k9 = uuid(), k10 = uuid();
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k9,p3,null,'Kattilaohjain','plc','Valmet','10.10.1.50','Valmet DNA','Leijupetikattilan ohjaus',now(),now()]);
-  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-    [k10,p3,null,'Operointiasema','palvelin','Valmet','10.10.1.10','Valmet DNA -operointiasema','Windows 10 LTSC',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k9,p3,null,'Kattilaohjain','plc','Valmet','DNA','10.10.1.50','Leijupetikattilan ohjaus','',now(),now()]);
+  run("INSERT INTO kohde(id,projekti_id,parent_id,nimi,tyyppi,valmistaja,malli,osoite,kuvaus,lisatiedot,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [k10,p3,null,'Operointiasema','palvelin','Valmet','DNA Workstation','10.10.1.10','Valmet DNA -operointiasema','Windows 10 LTSC',now(),now()]);
 
   // Tunnisteet (salatut)
   const creds = [
