@@ -94,6 +94,17 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 .search-input { width:100%; padding:12px 14px; font-size:15px; background:var(--bg-card); border:1px solid var(--border); border-radius:10px; color:var(--text-primary); margin-bottom:12px; }
 .search-input:focus { outline:none; border-color:var(--accent); }
 .search-group { font-size:11px; color:var(--text-dim); text-transform:uppercase; margin:12px 0 6px; letter-spacing:0.5px; }
+/* Henkilö card */
+.henkilo-card { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:8px; }
+.henkilo-card-name { font-weight:600; font-size:15px; }
+.henkilo-card-org { font-size:13px; color:var(--text-muted); }
+.henkilo-card-title { font-size:12px; color:var(--text-dim); margin-top:2px; }
+.henkilo-card-contact { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; font-size:13px; }
+.henkilo-card-contact a { color:var(--accent); text-decoration:none; display:flex; align-items:center; gap:4px; }
+.henkilo-card-contact a:active { color:var(--accent-hover); }
+.henkilo-card-contact .material-icons { font-size:16px; }
+.henkilo-card-role { font-size:11px; color:var(--accent); margin-top:4px; }
+.henkilo-card-notes { font-size:12px; color:var(--text-dim); margin-top:6px; }
 /* Form */
 .form-group { margin-bottom:12px; }
 .form-group label { display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px; }
@@ -177,6 +188,9 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
     <div class="tab" data-tab="merkinnat" onclick="switchTab('merkinnat')">
       <span class="material-icons">auto_stories</span>Merkinnät
     </div>
+    <div class="tab" data-tab="henkilot" onclick="switchTab('henkilot')">
+      <span class="material-icons">people</span>Henkilöt
+    </div>
     <div class="tab" data-tab="haku" onclick="switchTab('haku')">
       <span class="material-icons">search</span>Haku
     </div>
@@ -188,7 +202,7 @@ html, body { height: 100%; background: var(--bg-main); color: var(--text-primary
 
 <script>
 /* ═══ GLOBALS ═══ */
-var APP_VERSION = '2.0.0';
+var APP_VERSION = '2.1.0';
 var SQL, db, encryptionKey, dbDirty = false;
 var currentTab = 'laitteet';
 var selectedProjectId = localStorage.getItem('tietoholvi_mobile_project') || null;
@@ -321,11 +335,12 @@ function updateExportBadge(){
 function renderView(){
   updateExportBadge();
   var fab=document.getElementById('fab');
-  fab.classList.toggle('hidden',currentTab==='haku');
+  fab.classList.toggle('hidden',currentTab==='haku'||currentTab==='henkilot');
   if(!selectedProjectId){showProjectSelector();return;}
   updateTopbar();
   if(currentTab==='laitteet'){if(deviceDetailId)renderDeviceDetail();else renderDeviceList();}
   else if(currentTab==='merkinnat') renderMerkintaList();
+  else if(currentTab==='henkilot') renderHenkiloList();
   else if(currentTab==='haku') renderSearch();
 }
 function updateTopbar(){
@@ -615,9 +630,40 @@ function clearExportedMerkinnat(){
   renderView();
 }
 
+/* ═══ HENKILÖT ═══ */
+function renderHenkiloList(){
+  // Projektin henkilöt roolin kera
+  var projH=query("SELECT h.*, ph.rooli FROM henkilo h INNER JOIN projekti_henkilo ph ON h.id=ph.henkilo_id WHERE ph.projekti_id=? ORDER BY h.nimi",[selectedProjectId]);
+  // Yleiset henkilöt (ei projektiin linkitetty) – ei näytetä, vain projektin omat
+  var h='';
+  if(!projH.length){
+    h='<div class="empty">'+mi('people')+'<div>Ei henkilöitä tässä projektissa</div></div>';
+  } else {
+    projH.forEach(function(p){
+      h+=renderHenkiloCard(p);
+    });
+  }
+  document.getElementById('content').innerHTML=h;
+}
+function renderHenkiloCard(p){
+  var h='<div class="henkilo-card">';
+  h+='<div class="henkilo-card-name">'+esc(p.nimi);
+  if(p.organisaatio) h+=' · <span class="henkilo-card-org" style="font-weight:400;font-size:13px;color:var(--text-muted)">'+esc(p.organisaatio)+'</span>';
+  h+='</div>';
+  if(p.nimike) h+='<div class="henkilo-card-title">'+esc(p.nimike)+'</div>';
+  if(p.rooli) h+='<div class="henkilo-card-role">'+esc(p.rooli)+'</div>';
+  var contacts=[];
+  if(p.puhelin) contacts.push('<a href="tel:'+esc(p.puhelin)+'">'+mi('phone')+' '+esc(p.puhelin)+'</a>');
+  if(p.sahkoposti) contacts.push('<a href="mailto:'+esc(p.sahkoposti)+'">'+mi('email')+' '+esc(p.sahkoposti)+'</a>');
+  if(contacts.length) h+='<div class="henkilo-card-contact">'+contacts.join('')+'</div>';
+  if(p.lisatiedot) h+='<div class="henkilo-card-notes">'+esc(p.lisatiedot)+'</div>';
+  h+='</div>';
+  return h;
+}
+
 /* ═══ SEARCH ═══ */
 function renderSearch(){
-  var h='<input class="search-input" id="search-q" placeholder="Hae laitteista, tunnisteista, merkinnöistä..." oninput="doSearch()">';
+  var h='<input class="search-input" id="search-q" placeholder="Hae laitteista, tunnisteista, merkinnöistä, henkilöistä..." oninput="doSearch()">';
   h+='<div id="search-results"></div>';
   document.getElementById('content').innerHTML=h;
   document.getElementById('search-q').focus();
@@ -652,6 +698,12 @@ function doSearch(){
   if(merks.length){
     h+='<div class="search-group">Merkinnät ('+merks.length+')</div>';
     merks.forEach(function(m){ h+=renderMerkCard(m); });
+  }
+  // Henkilöt
+  var henks=query("SELECT h.*, ph.rooli FROM henkilo h INNER JOIN projekti_henkilo ph ON h.id=ph.henkilo_id WHERE ph.projekti_id=? AND (LOWER(h.nimi) LIKE ? OR LOWER(h.organisaatio) LIKE ? OR LOWER(h.nimike) LIKE ? OR LOWER(h.puhelin) LIKE ? OR LOWER(h.sahkoposti) LIKE ?) LIMIT 10",[selectedProjectId,like,like,like,like,like]);
+  if(henks.length){
+    h+='<div class="search-group">Henkilöt ('+henks.length+')</div>';
+    henks.forEach(function(p){ h+=renderHenkiloCard(p); });
   }
   if(!h) h='<div class="empty" style="padding-top:20px">Ei tuloksia</div>';
   document.getElementById('search-results').innerHTML=h;
