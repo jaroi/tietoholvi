@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 25.3.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 7.4.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -1835,15 +1835,31 @@ function loadFromLS() {
 }
 
 /* ═══ FILE SAVE/LOAD ═══ */
-function saveDbFile() {
+async function saveDbFile() {
   if(!db) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([db.export()]));
-  a.download = 'esys-tietoholvi-'+new Date().toISOString().slice(0,10)+'.db';
+  var data = db.export();
+  var filename = 'esys-tietoholvi-'+new Date().toISOString().slice(0,10)+'.db';
+  if (window.showSaveFilePicker) {
+    try {
+      var handle = await showSaveFilePicker({
+        suggestedName: filename,
+        types: [{description: 'Tietoholvi-tietokanta', accept: {'application/octet-stream': ['.db']}}]
+      });
+      var writable = await handle.createWritable();
+      await writable.write(new Blob([data]));
+      await writable.close();
+      setMeta('last_backup', new Date().toISOString());
+      markClean(); autoSave();
+      toast('Tietokanta tallennettu','success');
+      return;
+    } catch(e) { if (e.name === 'AbortError') return; }
+  }
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data]));
+  a.download = filename;
   a.click(); URL.revokeObjectURL(a.href);
   setMeta('last_backup', new Date().toISOString());
-  markClean();
-  autoSave();
+  markClean(); autoSave();
   toast('Tietokanta tallennettu','success');
 }
 function loadDbFile() { document.getElementById('file-db-input').click(); }
@@ -3714,6 +3730,7 @@ async function copyOsoite(osoite) {
 }
 
 /* ═══ FORMS ═══ */
+var _pendingProjekti = null;
 function openForm(type, id, parentRef, subParent) {
   const isEdit = !!id;
   let title='', body='', footer='';
@@ -3727,7 +3744,7 @@ function openForm(type, id, parentRef, subParent) {
     asiakasHtml += '<option value="">-- Ei asiakasta --</option>';
     asiakkaat.forEach(a => { asiakasHtml += '<option value="'+a.id+'"'+(a.id===d.asiakas_id?' selected':'')+'>'+esc(a.nimi)+'</option>'; });
     asiakasHtml += '</select>';
-    asiakasHtml += '<button class="btn btn-sm" onclick="openForm(\'asiakas\')" type="button">+ Uusi</button>';
+    asiakasHtml += '<button class="btn btn-sm" onclick="_pendingProjekti={tunnus:val(\'f-tunnus\'),nimi:val(\'f-nimi\'),polku:val(\'f-polku\'),kuvaus:val(\'f-kuvaus\'),lisatiedot:val(\'f-lisatiedot\')};openForm(\'asiakas\')" type="button">+ Uusi</button>';
     asiakasHtml += '</div></div>';
     body = fg('Tunnus','text','f-tunnus',d.tunnus,'esim. P23534') +
       fg('Nimi *','text','f-nimi',d.nimi) +
@@ -4036,9 +4053,28 @@ function saveAsiakas(id) {
       [nimi, val('f-yhteyshenkilo'), val('f-puhelin'), val('f-sahkoposti'), val('f-osoite'), val('f-www'), now(), id]);
     toast('Asiakas paivitetty','success');
   } else {
+    var newAsiakasId = uuid();
     run('INSERT INTO asiakas(id,nimi,yhteyshenkilo,puhelin,sahkoposti,osoite,www,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?)',
-      [uuid(), nimi, val('f-yhteyshenkilo'), val('f-puhelin'), val('f-sahkoposti'), val('f-osoite'), val('f-www'), now(), now()]);
+      [newAsiakasId, nimi, val('f-yhteyshenkilo'), val('f-puhelin'), val('f-sahkoposti'), val('f-osoite'), val('f-www'), now(), now()]);
     toast('Asiakas lisatty','success');
+    // Jos tultiin projektilomakkeesta, palaa sinne
+    if (_pendingProjekti) {
+      var pp = _pendingProjekti;
+      _pendingProjekti = null;
+      openForm('projekti');
+      // Palauta tallennetut arvot
+      setTimeout(function(){
+        if (pp.tunnus) document.getElementById('f-tunnus').value = pp.tunnus;
+        if (pp.nimi) document.getElementById('f-nimi').value = pp.nimi;
+        if (pp.polku) document.getElementById('f-polku').value = pp.polku;
+        if (pp.kuvaus) document.getElementById('f-kuvaus').value = pp.kuvaus;
+        if (pp.lisatiedot) document.getElementById('f-lisatiedot').value = pp.lisatiedot;
+        // Valitse juuri luotu asiakas
+        var sel = document.getElementById('f-asiakas-id');
+        if (sel) sel.value = newAsiakasId;
+      }, 50);
+      return;
+    }
   }
   closeModal(); renderAll();
 }
