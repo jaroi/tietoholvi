@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 7.4.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 9.4.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -950,7 +950,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .cred-list { padding: 4px 0; }
     .cred-row {
       display: flex; align-items: center; padding: 8px 16px 8px 44px; gap: 10px;
-      border-bottom: 1px solid var(--cred-sep); font-size: 13px;
+      border-bottom: 1px solid var(--cred-sep); font-size: 13px; flex-wrap: wrap;
     }
     .cred-row:last-child { border-bottom: none; }
     .cred-row:hover { background: var(--bg-hover); }
@@ -961,6 +961,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .cred-row .cred-pw.visible { color: var(--pw-visible); letter-spacing: normal; }
     .cred-row .cred-extra { font-size: 11px; color: var(--text-dim); flex: 1; }
     .cred-row .cred-btns { display: flex; gap: 3px; margin-left: auto; }
+    .cred-lisatiedot { width:100%; font-size:12px; color:var(--text-dim); padding:4px 0 0 34px; line-height:1.4; }
     .cred-add {
       padding: 6px 16px 6px 44px; font-size: 12px; color: var(--accent); cursor: pointer;
     }
@@ -2688,7 +2689,9 @@ function renderCredRow(t) {
   html += '<button class="btn btn-ghost btn-sm" onclick="copyUser(\''+t.id+'\')" title="Kopioi tunnus">'+mi('person')+'</button>';
   html += '<button class="btn btn-ghost btn-sm" onclick="openForm(\'tunniste\',\''+t.id+'\')" title="Muokkaa">'+mi('edit')+'</button>';
   html += '<button class="btn btn-ghost btn-sm" onclick="deleteTunniste(\''+t.id+'\')" title="Poista">'+mi('delete')+'</button>';
-  html += '</span></div>';
+  html += '</span>';
+  if (t.lisatiedot) html += '<div class="cred-lisatiedot">'+esc(t.lisatiedot)+'</div>';
+  html += '</div>';
   return html;
 }
 
