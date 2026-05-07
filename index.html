@@ -1528,7 +1528,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
-const APP_VERSION = '1.9.2';
+const APP_VERSION = '1.9.3';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
@@ -7081,20 +7081,22 @@ async function aiCall(prompt) {
 
 function getMerkintaSisaltoForAI(merkintaId, sisalto) {
   // Palauttaa pää-merkinnän sisällön ja siihen liitetyt kommentit AI:lle.
-  // Kommentit eritelty omaan "PÄIVITYKSET"-osioonsa aikajärjestyksessä — uusin viimeisenä.
+  // Kommentit eritelty omaan "PÄIVITYKSET"-osioon ja järjestetty viimeisimmän
+  // muutoksen mukaan (COALESCE(muokattu, luotu)) — uusin viimeisenä, jotta AI
+  // näkee tuorein tieto myös silloin kun vanhaa kommenttia on muokattu.
   var content = stripHtml(sisalto || '').trim();
-  var komms = query("SELECT sisalto, luotu FROM merkinta WHERE parent_id=? ORDER BY luotu ASC", [merkintaId]);
+  var komms = query("SELECT sisalto, COALESCE(muokattu, luotu) AS aika FROM merkinta WHERE parent_id=? ORDER BY COALESCE(muokattu, luotu) ASC", [merkintaId]);
   if (komms.length) {
     content += (content ? '\n\n' : '') + 'PÄIVITYKSET (aikajärjestyksessä, uusin viimeisenä — kuvaa nykytilaa):';
     komms.forEach(function(k) {
-      var d = k.luotu ? new Date(k.luotu) : null;
+      var d = k.aika ? new Date(k.aika) : null;
       var ts;
       if (d && !isNaN(d.getTime())) {
         var hh = String(d.getHours()).padStart(2,'0');
         var mm = String(d.getMinutes()).padStart(2,'0');
         ts = d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear() + ' ' + hh + ':' + mm;
       } else {
-        ts = (k.luotu||'').slice(0,16).replace('T',' ');
+        ts = (k.aika||'').slice(0,16).replace('T',' ');
       }
       content += '\n- ' + ts + ': ' + stripHtml(k.sisalto||'').trim();
     });
@@ -7417,7 +7419,7 @@ async function generateWeeklySummary() {
   var summaryEl = document.getElementById('weekly-summary-area');
   if (summaryEl) summaryEl.innerHTML = '<div class="ai-summary-card"><div class="summary-title"><span class="ai-spinner"></span> Luodaan viikkoyhteenvetoa...</div></div>';
 
-  var merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days') OR EXISTS(SELECT 1 FROM merkinta c WHERE c.parent_id=m.id AND c.luotu >= datetime('now','-7 days'))) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
+  var merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days') OR EXISTS(SELECT 1 FROM merkinta c WHERE c.parent_id=m.id AND COALESCE(c.muokattu, c.luotu) >= datetime('now','-7 days'))) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
 
   if (!merkinnat.length) {
     if (summaryEl) summaryEl.innerHTML = '<div class="ai-summary-card" style="padding:10px 14px"><span style="font-size:13px;color:var(--text-dim)">Ei merkintöjä viimeiseltä 7 päivältä</span></div>';
@@ -7439,7 +7441,7 @@ async function generateWeeklySummary() {
       await generateEntryBatchSummaries(projectIds[pi]);
     }
     // Hae merkinnät uudelleen päivitetyillä tiivistelmillä
-    merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days') OR EXISTS(SELECT 1 FROM merkinta c WHERE c.parent_id=m.id AND c.luotu >= datetime('now','-7 days'))) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
+    merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days') OR EXISTS(SELECT 1 FROM merkinta c WHERE c.parent_id=m.id AND COALESCE(c.muokattu, c.luotu) >= datetime('now','-7 days'))) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
     byProject = {};
     merkinnat.forEach(function(m) {
       var key = m.projekti_id || '__general__';
