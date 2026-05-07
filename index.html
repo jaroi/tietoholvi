@@ -10,7 +10,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>ESYS Tietoholvi</title>
-    <!-- OFFLINE: kirjastot upotettu 9.4.2026 -->
+    <!-- OFFLINE: kirjastot upotettu 7.5.2026 -->
   <style>/* fallback */
 @font-face {
   font-family: 'Material Icons';
@@ -1212,7 +1212,32 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .merkinta-card.tila-tarkea { border-left-width: 4px; }
     .merkinta-ref-num { font-size: 11px; font-weight: 600; font-family: monospace; color: var(--accent); min-width: 18px; text-align: center; flex-shrink: 0; }
     .merkinta-card.collapsed .merkinta-card-body,
-    .merkinta-card.collapsed .merkinta-card-tags { display: none; }
+    .merkinta-card.collapsed .merkinta-card-tags,
+    .merkinta-card.collapsed .merkinta-comments-section { display: none; }
+    /* Merkintä-kommentit (alakeskustelu) */
+    .merkinta-comments-section { padding: 8px 0 0 26px; margin-top: 8px; border-top: 1px dashed var(--border); }
+    .merkinta-comments-list { margin-bottom: 6px; }
+    .merkinta-comment-row { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 12px; line-height: 1.5; color: var(--text-secondary); border-bottom: 1px dotted rgba(128,128,128,0.15); }
+    .merkinta-comment-row:last-child { border-bottom: none; }
+    .merkinta-comment-time { color: var(--text-dim); font-family: 'Consolas', monospace; font-size: 11px; flex-shrink: 0; min-width: 130px; padding-top: 1px; white-space: nowrap; }
+    .merkinta-comment-body { flex: 1; word-break: break-word; min-width: 0; }
+    .merkinta-comment-body p { margin: 0 0 2px; }
+    .merkinta-comment-body img { max-width: 100%; height: auto; }
+    .merkinta-comment-actions { opacity: 0; transition: opacity 0.15s; flex-shrink: 0; display: inline-flex; gap: 2px; }
+    .merkinta-comment-row:hover .merkinta-comment-actions { opacity: 1; }
+    .merkinta-comment-action { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 4px; border-radius: 3px; display: inline-flex; align-items: center; }
+    .merkinta-comment-action:hover { background: var(--bg-hover); color: var(--text-primary); }
+    .merkinta-comment-action .material-icons { font-size: 14px; }
+    .merkinta-comment-input-wrap { display: flex; align-items: flex-end; gap: 6px; margin-top: 4px; }
+    .merkinta-comment-input { flex: 1; padding: 6px 8px; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-family: inherit; font-size: 12px; resize: none; min-height: 30px; max-height: 200px; line-height: 1.5; box-sizing: border-box; }
+    .merkinta-comment-input:focus { outline: none; border-color: var(--accent); }
+    .merkinta-comment-send { padding: 4px 8px; flex-shrink: 0; height: 30px; }
+    .merkinta-comment-send .material-icons { font-size: 16px; }
+    .merkinta-comment-row.editing { flex-direction: column; gap: 4px; padding: 6px 0; }
+    .merkinta-comment-edit { width: 100%; padding: 6px 8px; background: var(--bg-sidebar); border: 1px solid var(--accent); border-radius: 6px; color: var(--text-primary); font-family: inherit; font-size: 12px; resize: vertical; min-height: 50px; line-height: 1.5; box-sizing: border-box; }
+    .merkinta-comment-edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
+    .merkinta-comment-count { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; display: inline-flex; align-items: center; gap: 4px; }
+    .merkinta-comment-count .material-icons { font-size: 14px; opacity: 0.7; }
     .merkinta-ai-summary { font-size: 12px; color: var(--text-dim); padding: 2px 0 0 26px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
     .merkinta-ai-summary .material-icons { font-size: 13px; color: var(--accent); opacity: 0.5; }
     .merkinta-ai-summary .ai-refresh { cursor: pointer; opacity: 0.4; font-size: 13px; }
@@ -1503,7 +1528,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
@@ -1625,11 +1650,13 @@ CREATE TABLE IF NOT EXISTS tunniste (
   vaihdettu TEXT, luotu TEXT, muokattu TEXT
 );
 CREATE TABLE IF NOT EXISTS merkinta (
-  id TEXT PRIMARY KEY, projekti_id TEXT, tyyppi TEXT DEFAULT 'muistiinpano',
+  id TEXT PRIMARY KEY, projekti_id TEXT, kohde_id TEXT, parent_id TEXT,
+  tyyppi TEXT DEFAULT 'muistiinpano',
   otsikko TEXT NOT NULL, sisalto TEXT, paivamaara TEXT, tagit TEXT,
   korjattu TEXT, tila TEXT DEFAULT 'aktiivinen', tulosta INTEGER DEFAULT 1, ai_piilota INTEGER DEFAULT 0, ai_tiivistelma TEXT,
   luotu TEXT, muokattu TEXT,
-  FOREIGN KEY(projekti_id) REFERENCES projekti(id)
+  FOREIGN KEY(projekti_id) REFERENCES projekti(id),
+  FOREIGN KEY(parent_id) REFERENCES merkinta(id)
 );
 CREATE TABLE IF NOT EXISTS henkilo (
   id TEXT PRIMARY KEY, nimi TEXT NOT NULL, nimike TEXT,
@@ -1643,7 +1670,7 @@ CREATE TABLE IF NOT EXISTS projekti_henkilo (
   FOREIGN KEY(henkilo_id) REFERENCES henkilo(id)
 );`;
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 17;
 
 const MIGRATIONS = [
   // Versio 1: Alkuperäinen schema (asiakas, projekti, kohde, tunniste, meta)
@@ -1662,6 +1689,7 @@ const MIGRATIONS = [
   { version: 14, up: "ALTER TABLE merkinta ADD COLUMN ai_tiivistelma TEXT;" },
   { version: 15, up: "ALTER TABLE merkinta ADD COLUMN tila TEXT DEFAULT 'aktiivinen'; UPDATE merkinta SET tila='valmis' WHERE korjattu IS NOT NULL;" },
   { version: 16, up: "ALTER TABLE merkinta ADD COLUMN kohde_id TEXT;" },
+  { version: 17, up: "ALTER TABLE merkinta ADD COLUMN parent_id TEXT;" },
 ];
 
 function initDb(data) {
@@ -2511,7 +2539,7 @@ function renderProject(p) {
   }
 
   // Merkinnät section
-  const _allMerkRaw = query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
+  const _allMerkRaw = query("SELECT * FROM merkinta WHERE projekti_id=? AND kohde_id IS NULL AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara, luotu) DESC, luotu DESC", [p.id]);
   const _merkPinned = getPinnedMerkinnat();
   const allMerkinnat = _merkPinned.map(function(id){ return _allMerkRaw.find(function(m){ return m.id===id; }); }).filter(Boolean).concat(_allMerkRaw.filter(function(m){ return _merkPinned.indexOf(m.id) < 0; }));
   const merkCollapsed = sectionCollapsed['merkinnat'];
@@ -2566,7 +2594,7 @@ function renderKohdeNode(k) {
   const tunnisteet = query("SELECT * FROM tunniste WHERE kohde_id=? ORDER BY palvelu", [k.id]);
   const children = query("SELECT * FROM kohde WHERE parent_id=? ORDER BY nimi", [k.id]);
   const icon = kohdeIcon(k.tyyppi);
-  const _kohdeHasMerk = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=?",[k.id])[0].c > 0;
+  const _kohdeHasMerk = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=? AND (parent_id IS NULL OR parent_id='')",[k.id])[0].c > 0;
   const hasContent = tunnisteet.length > 0 || children.length > 0 || _kohdeHasMerk;
 
   let html = '<div class="kohde-node'+(isOpen?' expanded':'')+'" data-kohde-id="'+k.id+'">';
@@ -2591,7 +2619,7 @@ function renderKohdeNode(k) {
   if (k.ai_tiedot) html += '<span class="kohde-ai-btn" onclick="event.stopPropagation();var el=document.getElementById(\'ai-info-'+k.id+'\');if(el){el.classList.toggle(\'hidden\')}" title="AI-tiedot" style="font-size:14px;color:var(--accent);cursor:pointer;opacity:0.5;margin-left:4px;display:inline-flex;align-items:center">'+mi('auto_awesome')+'</span>';
   const credCount = tunnisteet.length + children.reduce((s,c) => s + query("SELECT COUNT(*) as c FROM tunniste WHERE kohde_id=?",[c.id])[0].c, 0);
   if (credCount) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:4px;display:inline-flex;align-items:center;gap:2px">'+credCount+' <span class="material-icons" style="font-size:14px">key</span></span>';
-  var kohdeMerkCount = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=?",[k.id])[0].c;
+  var kohdeMerkCount = query("SELECT COUNT(*) as c FROM merkinta WHERE kohde_id=? AND (parent_id IS NULL OR parent_id='')",[k.id])[0].c;
   if (kohdeMerkCount) html += '<span style="font-size:11px;color:var(--text-dim);margin-left:4px;display:inline-flex;align-items:center;gap:2px">'+kohdeMerkCount+' <span class="material-icons" style="font-size:14px">sticky_note_2</span></span>';
   var kohdePrintOn = k.tulosta !== 0 && k.tulosta !== '0';
   html += '<span class="merkinta-print-toggle '+(kohdePrintOn?'on':'off')+'" onclick="event.stopPropagation();toggleKohdePrint(\''+k.id+'\')" title="'+(kohdePrintOn?'Mukana PDF-raportissa — klikkaa piilottaaksesi':'Ei mukana PDF-raportissa — klikkaa lisätäksesi')+'">'+mi('print')+'</span>';
@@ -2627,7 +2655,7 @@ function renderKohdeNode(k) {
   }
 
   // Laitekohtaiset merkinnät
-  var kohdeMerkinnat = isOpen ? query("SELECT * FROM merkinta WHERE kohde_id=? ORDER BY COALESCE(paivamaara,luotu) DESC", [k.id]) : [];
+  var kohdeMerkinnat = isOpen ? query("SELECT * FROM merkinta WHERE kohde_id=? AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara,luotu) DESC", [k.id]) : [];
   html += '<div class="kohde-merkinnat" id="kohde-merkinnat-'+k.id+'" style="padding:0 0 0 36px">';
   if (kohdeMerkinnat.length) {
     kohdeMerkinnat.forEach(function(m) {
@@ -2657,6 +2685,7 @@ function renderKohdeNode(k) {
         });
         html += '</div>';
       }
+      html += renderMerkintaKommentit(m.id);
       html += '</div>';
     });
   }
@@ -2784,9 +2813,45 @@ function saveMerkinta(id, data) {
 }
 
 function deleteMerkinta(id) {
-  if (!confirm('Poistetaanko merkintä?')) return;
+  var n = query("SELECT COUNT(*) as c FROM merkinta WHERE parent_id=?",[id])[0].c;
+  var msg = n > 0 ? 'Poistetaanko merkintä? Sen alla on '+n+' kommentti'+(n===1?'':'a')+' jotka poistetaan myös.' : 'Poistetaanko merkintä?';
+  if (!confirm(msg)) return;
+  run("DELETE FROM merkinta WHERE parent_id=?",[id]);
   run("DELETE FROM merkinta WHERE id=?",[id]);
   toast('Merkintä poistettu','success');
+  renderContent();
+}
+
+function saveKommentti(parentId, sisalto) {
+  var s = (sisalto || '').trim();
+  if (!s) return null;
+  var par = query("SELECT projekti_id, kohde_id FROM merkinta WHERE id=?",[parentId]);
+  if (!par.length) { toast('Pää-merkintää ei löytynyt','error'); return null; }
+  var t = now();
+  var id = uuid();
+  // Otsikko = sisällön ensimmäinen rivi (ilman HTML-tageja), katkaistu — tarvitaan NOT NULL -rajoitteen takia
+  var plain = s.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+  var otsikko = plain.slice(0, 80) || '(kommentti)';
+  run("INSERT INTO merkinta(id,projekti_id,kohde_id,parent_id,tyyppi,otsikko,sisalto,paivamaara,tila,tulosta,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+    [id, par[0].projekti_id||null, par[0].kohde_id||null, parentId, 'muistiinpano', otsikko, s, t.slice(0,10), 'aktiivinen', 1, t, t]);
+  scheduleSave();
+  return id;
+}
+
+function deleteKommentti(id) {
+  if (!confirm('Poistetaanko kommentti?')) return;
+  run("DELETE FROM merkinta WHERE id=?",[id]);
+  scheduleSave();
+  renderContent();
+}
+
+function updateKommentti(id, sisalto) {
+  var s = (sisalto || '').trim();
+  if (!s) { deleteKommentti(id); return; }
+  var plain = s.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+  var otsikko = plain.slice(0, 80) || '(kommentti)';
+  run("UPDATE merkinta SET otsikko=?, sisalto=?, muokattu=? WHERE id=?", [otsikko, s, now(), id]);
+  scheduleSave();
   renderContent();
 }
 
@@ -3444,8 +3509,122 @@ function renderMerkintaCard(m, showProj, refNum) {
     });
     html += '</div>';
   }
+  html += renderMerkintaKommentit(m.id);
   html += '</div>';
   return html;
+}
+
+/* ═══ KOMMENTIT (alakeskustelu merkinnän alla) ═══ */
+function renderMerkintaKommentit(merkintaId) {
+  var komms = query("SELECT id, sisalto, luotu, muokattu FROM merkinta WHERE parent_id=? ORDER BY luotu ASC", [merkintaId]);
+  var html = '<div class="merkinta-comments-section" onclick="event.stopPropagation()">';
+  if (komms.length) {
+    html += '<div class="merkinta-comment-count">'+mi('forum')+' '+komms.length+' kommentti'+(komms.length===1?'':'a')+'</div>';
+    html += '<div class="merkinta-comments-list">';
+    var weekdays = ['su','ma','ti','ke','to','pe','la'];
+    komms.forEach(function(k) {
+      var ts = (k.luotu||'').replace('T',' ');
+      var d = k.luotu ? new Date(k.luotu) : null;
+      var tsLabel = ts.slice(0,16);
+      if (d && !isNaN(d.getTime())) {
+        var hh = String(d.getHours()).padStart(2,'0');
+        var mm = String(d.getMinutes()).padStart(2,'0');
+        tsLabel = weekdays[d.getDay()] + ' ' + d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear() + ' ' + hh + ':' + mm;
+      }
+      var editing = (window._editingKommenttiId === k.id);
+      if (editing) {
+        var safe = (k.sisalto||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        html += '<div class="merkinta-comment-row editing">';
+        html += '<textarea class="merkinta-comment-edit" id="komm-edit-'+k.id+'" onkeydown="kommenttiEditKeydown(event,\''+k.id+'\')" oninput="kommenttiInputAutosize(this)">'+safe+'</textarea>';
+        html += '<div class="merkinta-comment-edit-actions">';
+        html += '<button class="btn btn-sm btn-ghost" onclick="kommenttiEditCancel()">Peruuta (Esc)</button>';
+        html += '<button class="btn btn-sm btn-primary" onclick="kommenttiEditSave(\''+k.id+'\')">Tallenna (Ctrl+Enter)</button>';
+        html += '</div></div>';
+      } else {
+        html += '<div class="merkinta-comment-row">';
+        html += '<span class="merkinta-comment-time" title="'+esc(ts.slice(0,16))+'">'+esc(tsLabel)+'</span>';
+        html += '<span class="merkinta-comment-body">'+renderKommenttiSisalto(k.sisalto)+'</span>';
+        html += '<span class="merkinta-comment-actions">';
+        html += '<button class="merkinta-comment-action" onclick="kommenttiEdit(\''+k.id+'\')" title="Muokkaa">'+mi('edit')+'</button>';
+        html += '<button class="merkinta-comment-action" onclick="deleteKommentti(\''+k.id+'\')" title="Poista">'+mi('delete')+'</button>';
+        html += '</span>';
+        html += '</div>';
+      }
+    });
+    html += '</div>';
+  }
+  html += '<div class="merkinta-comment-input-wrap">';
+  html += '<textarea class="merkinta-comment-input" id="komm-input-'+merkintaId+'" placeholder="Lisää kommentti…  (Enter tallentaa, Shift+Enter rivinvaihto)" onkeydown="kommenttiInputKeydown(event,\''+merkintaId+'\')" oninput="kommenttiInputAutosize(this)" rows="1"></textarea>';
+  html += '<button class="btn btn-primary merkinta-comment-send" onclick="kommenttiSubmit(\''+merkintaId+'\')" title="Lähetä (Enter)">'+mi('send')+'</button>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function renderKommenttiSisalto(s) {
+  // Plain text -> esc + rivinvaihdot
+  if (!s) return '';
+  return esc(s).replace(/\n/g,'<br>');
+}
+
+function kommenttiInputAutosize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+function kommenttiInputKeydown(e, merkintaId) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    kommenttiSubmit(merkintaId);
+  }
+}
+
+function kommenttiSubmit(merkintaId) {
+  var el = document.getElementById('komm-input-'+merkintaId);
+  if (!el) return;
+  var text = el.value.trim();
+  if (!text) { el.focus(); return; }
+  saveKommentti(merkintaId, text);
+  el.value = '';
+  el.style.height = '';
+  // Säilytetään pää-merkintä laajennettuna (jos oli) ja renderöidään uudelleen
+  expandedMerkCards[merkintaId] = true;
+  renderContent();
+  // Palauta fokus syötteeseen seuraavan kommentin kirjoittamista varten
+  setTimeout(function(){
+    var ne = document.getElementById('komm-input-'+merkintaId);
+    if (ne) ne.focus();
+  }, 30);
+}
+
+function kommenttiEdit(id) {
+  window._editingKommenttiId = id;
+  renderContent();
+  setTimeout(function(){
+    var el = document.getElementById('komm-edit-'+id);
+    if (el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+      kommenttiInputAutosize(el);
+    }
+  }, 30);
+}
+
+function kommenttiEditCancel() {
+  window._editingKommenttiId = null;
+  renderContent();
+}
+
+function kommenttiEditKeydown(e, id) {
+  if (e.key === 'Escape') { e.preventDefault(); kommenttiEditCancel(); }
+  else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); kommenttiEditSave(id); }
+}
+
+function kommenttiEditSave(id) {
+  var el = document.getElementById('komm-edit-'+id);
+  if (!el) return;
+  window._editingKommenttiId = null;
+  updateKommentti(id, el.value);
 }
 
 /* ═══ MERKINTÄ TIMELINE VIEW ═══ */
@@ -3592,6 +3771,7 @@ function renderMerkinnat() {
     params.push(like, like, like);
   }
   const order = merkintaSortDir === 'asc' ? 'ASC' : 'DESC';
+  where += " AND (m.parent_id IS NULL OR m.parent_id='')";
   const _rowsRaw = query("SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE "+where+" ORDER BY COALESCE(m.paivamaara, m.luotu) "+order+", m.luotu "+order+" LIMIT 200", params);
   const _tlPinned = getPinnedMerkinnat();
   const rows = _tlPinned.map(function(id){ return _rowsRaw.find(function(m){ return m.id===id; }); }).filter(Boolean).concat(_rowsRaw.filter(function(m){ return _tlPinned.indexOf(m.id) < 0; }));
@@ -5166,7 +5346,7 @@ async function doPdfExport(projId) {
   }
 
   // --- Merkinnät ---
-  const pdfMerkinnat = inclMerkinnat ? query("SELECT * FROM merkinta WHERE projekti_id=? AND tulosta!=0 ORDER BY COALESCE(paivamaara,luotu) DESC", [projId]) : [];
+  const pdfMerkinnat = inclMerkinnat ? query("SELECT * FROM merkinta WHERE projekti_id=? AND tulosta!=0 AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara,luotu) DESC", [projId]) : [];
   if (pdfMerkinnat.length) {
     if (y > 250) { doc.addPage(); y = 14; }
     doc.setFontSize(12);
@@ -5203,6 +5383,16 @@ async function doPdfExport(projId) {
         pdfSafe(m.tagit || '')
       ]);
       var txt = htmlToText(m.sisalto||'');
+      // Liitä kommentit pää-merkinnän alle
+      var pdfKomms = query("SELECT sisalto, luotu FROM merkinta WHERE parent_id=? ORDER BY luotu ASC", [m.id]);
+      if (pdfKomms.length) {
+        if (txt) txt += '\n';
+        txt += '-- Kommentit ('+pdfKomms.length+') --';
+        pdfKomms.forEach(function(k) {
+          var ts = (k.luotu||'').slice(0,16).replace('T',' ');
+          txt += '\n  ['+ts+'] '+pdfSafe(k.sisalto||'');
+        });
+      }
       if (txt) {
         var wrapped = doc.splitTextToSize(txt, contentMaxW);
         mBody.push([{content: wrapped.join('\n'), colSpan: 4, styles: {font:'helvetica', fontSize:7, textColor:[80,80,80], cellPadding:{top:1,bottom:3,left:contentCellPad,right:contentCellPad}}}]);
@@ -5286,21 +5476,21 @@ async function renderKohdePdf(doc, kohde, projId, y, margin, inclPw, darkBg, dar
 async function renderCredTable(doc, tunnisteet, y, xMargin, inclPw, darkBg, mutedText, blue, eco, headFill, headText, altRow, lineCol) {
   const pw = doc.internal.pageSize.getWidth();
   const head = inclPw
-    ? [['Palvelu','Tyyppi','Tunnus','Salasana','Portti','URL']]
-    : [['Palvelu','Tyyppi','Tunnus','Portti','URL']];
+    ? [['Palvelu','Tyyppi','Tunnus','Salasana','Portti','URL','Lisätiedot']]
+    : [['Palvelu','Tyyppi','Tunnus','Portti','URL','Lisätiedot']];
 
   const body = [];
   for (const t of tunnisteet) {
     const pwText = inclPw ? (t.salasana ? await decryptText(t.salasana) : '') : null;
     const row = inclPw
-      ? [pdfSafe(t.palvelu||''), pdfSafe(t.tyyppi||''), pdfSafe(t.kayttajatunnus||''), pdfSafe(pwText||''), pdfSafe(t.portti||''), pdfSafe(t.url||'')]
-      : [pdfSafe(t.palvelu||''), pdfSafe(t.tyyppi||''), pdfSafe(t.kayttajatunnus||''), pdfSafe(t.portti||''), pdfSafe(t.url||'')];
+      ? [pdfSafe(t.palvelu||''), pdfSafe(t.tyyppi||''), pdfSafe(t.kayttajatunnus||''), pdfSafe(pwText||''), pdfSafe(t.portti||''), pdfSafe(t.url||''), pdfSafe(t.lisatiedot||'')]
+      : [pdfSafe(t.palvelu||''), pdfSafe(t.tyyppi||''), pdfSafe(t.kayttajatunnus||''), pdfSafe(t.portti||''), pdfSafe(t.url||''), pdfSafe(t.lisatiedot||'')];
     body.push(row);
   }
 
   const colStyles = inclPw
-    ? {0:{cellWidth:30},1:{cellWidth:22},2:{cellWidth:30},3:{cellWidth:30},4:{cellWidth:14},5:{cellWidth:'auto'}}
-    : {0:{cellWidth:35},1:{cellWidth:25},2:{cellWidth:35},3:{cellWidth:16},4:{cellWidth:'auto'}};
+    ? {0:{cellWidth:26},1:{cellWidth:18},2:{cellWidth:26},3:{cellWidth:26},4:{cellWidth:12},5:{cellWidth:28},6:{cellWidth:'auto'}}
+    : {0:{cellWidth:30},1:{cellWidth:22},2:{cellWidth:30},3:{cellWidth:14},4:{cellWidth:28},5:{cellWidth:'auto'}};
 
   doc.autoTable({
     startY: y,
@@ -5502,16 +5692,28 @@ async function doExcelExport(projId) {
   ws1['!cols'] = [{wch:25},{wch:15},{wch:18},{wch:20},{wch:30},{wch:30},{wch:20},{wch:20}];
   ws2['!cols'] = [{wch:25},{wch:14},{wch:20},{wch:20},{wch:20},{wch:8},{wch:30},{wch:30}];
 
-  // Merkinnät-data
-  const xlsMerkinnat = query("SELECT * FROM merkinta WHERE projekti_id=? ORDER BY COALESCE(paivamaara,luotu) DESC", [projId]);
-  const merkintaRows = xlsMerkinnat.map(m => ({
-    'Päivämäärä': m.paivamaara || m.luotu?.slice(0,10) || '',
-    'Tyyppi': merkintaLabel(m.tyyppi),
-    'Tila': tilaLabel(m.tila || 'aktiivinen'),
-    'Otsikko': m.otsikko || '',
-    'Sisältö': stripHtml(m.sisalto || ''),
-    'Tagit': m.tagit || ''
-  }));
+  // Merkinnät-data — pää-merkinnät, kommentit liitetään Sisältö-kenttään
+  const xlsMerkinnat = query("SELECT * FROM merkinta WHERE projekti_id=? AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara,luotu) DESC", [projId]);
+  const merkintaRows = xlsMerkinnat.map(m => {
+    var sisalto = stripHtml(m.sisalto || '');
+    var komms = query("SELECT sisalto, luotu FROM merkinta WHERE parent_id=? ORDER BY luotu ASC", [m.id]);
+    if (komms.length) {
+      if (sisalto) sisalto += '\n';
+      sisalto += '-- Kommentit ('+komms.length+') --';
+      komms.forEach(function(k) {
+        var ts = (k.luotu||'').slice(0,16).replace('T',' ');
+        sisalto += '\n  ['+ts+'] '+stripHtml(k.sisalto||'');
+      });
+    }
+    return {
+      'Päivämäärä': m.paivamaara || m.luotu?.slice(0,10) || '',
+      'Tyyppi': merkintaLabel(m.tyyppi),
+      'Tila': tilaLabel(m.tila || 'aktiivinen'),
+      'Otsikko': m.otsikko || '',
+      'Sisältö': sisalto,
+      'Tagit': m.tagit || ''
+    };
+  });
 
   XLSX.utils.book_append_sheet(wb, ws1, 'Laitteet');
   XLSX.utils.book_append_sheet(wb, ws2, 'Tunnisteet');
@@ -5586,7 +5788,7 @@ async function doJsonExport() {
     projekti: { tunnus: proj.tunnus, nimi: proj.nimi, kuvaus: proj.kuvaus, lisatiedot: proj.lisatiedot, polku: proj.polku },
     kohteet: kohteet.map(function(k){ return { id: k.id, parent_id: k.parent_id || null, nimi: k.nimi, tyyppi: k.tyyppi, valmistaja: k.valmistaja, malli: k.malli, osoite: k.osoite, kuvaus: k.kuvaus, lisatiedot: k.lisatiedot, ai_tiedot: k.ai_tiedot }; }),
     tunnisteet: expTunnisteet,
-    merkinnat: merkinnat.map(function(m){ return { tyyppi: m.tyyppi, otsikko: m.otsikko, sisalto: m.sisalto, paivamaara: m.paivamaara, tagit: m.tagit, korjattu: m.korjattu, tila: m.tila||'aktiivinen', tulosta: m.tulosta }; }),
+    merkinnat: merkinnat.map(function(m){ return { id: m.id, parent_id: m.parent_id || null, kohde_id: m.kohde_id || null, tyyppi: m.tyyppi, otsikko: m.otsikko, sisalto: m.sisalto, paivamaara: m.paivamaara, tagit: m.tagit, korjattu: m.korjattu, tila: m.tila||'aktiivinen', tulosta: m.tulosta }; }),
     henkilot: (function(){ var h=query("SELECT h.* FROM henkilo h WHERE h.id IN (SELECT henkilo_id FROM projekti_henkilo WHERE projekti_id=?)",[projId]); return h.map(function(x){ return {id:x.id,nimi:x.nimi,nimike:x.nimike,organisaatio:x.organisaatio,puhelin:x.puhelin,sahkoposti:x.sahkoposti,lisatiedot:x.lisatiedot}; }); })(),
     projektiHenkilot: query("SELECT henkilo_id,rooli FROM projekti_henkilo WHERE projekti_id=?",[projId])
   };
@@ -5704,10 +5906,20 @@ async function doJsonImport() {
     run("INSERT INTO tunniste(id,projekti_id,kohde_id,tyyppi,palvelu,kayttajatunnus,salasana,portti,url,lisatiedot,vaihdettu,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
       [uuid(), newKohdeId ? null : newProjId, newKohdeId, t.tyyppi||'kirjautuminen', t.palvelu||'', t.kayttajatunnus||'', encPw, t.portti||'', t.url||'', t.lisatiedot||'', t.vaihdettu||'', now(), now()]);
   }
-  // 5. Merkinnät
+  // 5. Merkinnät — ID-remap parent_id ja kohde_id varten
+  var merkintaMap = {};
   (data.merkinnat||[]).forEach(function(m) {
-    run("INSERT INTO merkinta(id,projekti_id,tyyppi,otsikko,sisalto,paivamaara,tagit,korjattu,tila,tulosta,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-      [uuid(), newProjId, m.tyyppi||'muistiinpano', m.otsikko||'', m.sisalto||'', m.paivamaara||'', m.tagit||'', m.korjattu||null, m.tila||'aktiivinen', m.tulosta!=null?m.tulosta:1, now(), now()]);
+    var newId = uuid();
+    if (m.id) merkintaMap[m.id] = newId;
+    var newKohdeId = m.kohde_id ? (kohdeMap[m.kohde_id] || null) : null;
+    run("INSERT INTO merkinta(id,projekti_id,kohde_id,tyyppi,otsikko,sisalto,paivamaara,tagit,korjattu,tila,tulosta,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      [newId, newProjId, newKohdeId, m.tyyppi||'muistiinpano', m.otsikko||'', m.sisalto||'', m.paivamaara||'', m.tagit||'', m.korjattu||null, m.tila||'aktiivinen', m.tulosta!=null?m.tulosta:1, now(), now()]);
+  });
+  // Päivitä parent_id:t uusilla merkintä-id:illä (tehdään erillisenä vaiheena, jotta lapset löytävät vanhempansa)
+  (data.merkinnat||[]).forEach(function(m) {
+    if (m.parent_id && m.id && merkintaMap[m.id] && merkintaMap[m.parent_id]) {
+      run("UPDATE merkinta SET parent_id=? WHERE id=?", [merkintaMap[m.parent_id], merkintaMap[m.id]]);
+    }
   });
   // 6. Henkilöt
   var henkiloMap = {};
@@ -6014,12 +6226,20 @@ async function doCloneProjekti() {
         [uuid(), newProjId, null, t.tyyppi, t.palvelu, t.kayttajatunnus, encPw, t.portti, t.url, t.lisatiedot, t.vaihdettu, now(), now()]);
     }
   }
-  // Kopioi merkinnät
+  // Kopioi merkinnät — parent_id-mapping kommenttihierarkialle
   if (inclNotes) {
     var merkinnat = query("SELECT * FROM merkinta WHERE projekti_id=?",[srcId]);
+    var mMap = {};
     merkinnat.forEach(function(m) {
+      var newId = uuid();
+      mMap[m.id] = newId;
       run("INSERT INTO merkinta(id,projekti_id,tyyppi,otsikko,sisalto,paivamaara,tagit,korjattu,tila,tulosta,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-        [uuid(), newProjId, m.tyyppi, m.otsikko, m.sisalto, m.paivamaara, m.tagit, m.korjattu, m.tila||'aktiivinen', m.tulosta, now(), now()]);
+        [newId, newProjId, m.tyyppi, m.otsikko, m.sisalto, m.paivamaara, m.tagit, m.korjattu, m.tila||'aktiivinen', m.tulosta, now(), now()]);
+    });
+    merkinnat.forEach(function(m) {
+      if (m.parent_id && mMap[m.id] && mMap[m.parent_id]) {
+        run("UPDATE merkinta SET parent_id=? WHERE id=?", [mMap[m.parent_id], mMap[m.id]]);
+      }
     });
   }
   // Kopioi henkilölinkit
@@ -6850,7 +7070,7 @@ async function aiCall(prompt) {
 }
 
 async function generateEntryBatchSummaries(projektiId) {
-  var missing = query("SELECT id, tyyppi, otsikko, sisalto, korjattu, tila FROM merkinta WHERE projekti_id=? AND ai_tiivistelma IS NULL AND (ai_piilota IS NULL OR ai_piilota=0) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
+  var missing = query("SELECT id, tyyppi, otsikko, sisalto, korjattu, tila FROM merkinta WHERE projekti_id=? AND ai_tiivistelma IS NULL AND (ai_piilota IS NULL OR ai_piilota=0) AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
   if (!missing.length) return;
 
   // Batch max 20 per kutsu
@@ -6925,7 +7145,7 @@ async function generateAiSummary(projektiId) {
   if (!proj.length) return;
   var projName = (proj[0].tunnus ? proj[0].tunnus + ' - ' : '') + proj[0].nimi;
 
-  var merkinnat = query("SELECT id, tyyppi, otsikko, sisalto, paivamaara, tagit, korjattu, tila, ai_tiivistelma FROM merkinta WHERE projekti_id=? AND (ai_piilota IS NULL OR ai_piilota=0) AND COALESCE(tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND NOT (COALESCE(tila,'aktiivinen')='valmis' AND korjattu IS NOT NULL AND korjattu < datetime('now','-7 days')) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
+  var merkinnat = query("SELECT id, tyyppi, otsikko, sisalto, paivamaara, tagit, korjattu, tila, ai_tiivistelma FROM merkinta WHERE projekti_id=? AND (ai_piilota IS NULL OR ai_piilota=0) AND (parent_id IS NULL OR parent_id='') AND COALESCE(tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND NOT (COALESCE(tila,'aktiivinen')='valmis' AND korjattu IS NOT NULL AND korjattu < datetime('now','-7 days')) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
   if (!merkinnat.length) { toast('Ei merkintöjä tiivistettäväksi','info'); return; }
 
   // Näytä loading
@@ -6936,7 +7156,7 @@ async function generateAiSummary(projektiId) {
     // Vaihe 1: Generoi puuttuvat merkintäkohtaiset tiivistelmät
     await generateEntryBatchSummaries(projektiId);
     // Hae uudelleen päivitetyillä tiivistelmillä
-    merkinnat = query("SELECT id, tyyppi, otsikko, paivamaara, korjattu, tila, muokattu, ai_tiivistelma FROM merkinta WHERE projekti_id=? AND (ai_piilota IS NULL OR ai_piilota=0) AND COALESCE(tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND NOT (COALESCE(tila,'aktiivinen')='valmis' AND korjattu IS NOT NULL AND korjattu < datetime('now','-7 days')) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
+    merkinnat = query("SELECT id, tyyppi, otsikko, paivamaara, korjattu, tila, muokattu, ai_tiivistelma FROM merkinta WHERE projekti_id=? AND (ai_piilota IS NULL OR ai_piilota=0) AND (parent_id IS NULL OR parent_id='') AND COALESCE(tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND NOT (COALESCE(tila,'aktiivinen')='valmis' AND korjattu IS NOT NULL AND korjattu < datetime('now','-7 days')) ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
 
     // Vaihe 2: Rakenna projektiyhteenveto tiivistelmistä
     var refMap = {};
@@ -7164,7 +7384,7 @@ async function generateWeeklySummary() {
   var summaryEl = document.getElementById('weekly-summary-area');
   if (summaryEl) summaryEl.innerHTML = '<div class="ai-summary-card"><div class="summary-title"><span class="ai-spinner"></span> Luodaan viikkoyhteenvetoa...</div></div>';
 
-  var merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days')) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
+  var merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days')) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
 
   if (!merkinnat.length) {
     if (summaryEl) summaryEl.innerHTML = '<div class="ai-summary-card" style="padding:10px 14px"><span style="font-size:13px;color:var(--text-dim)">Ei merkintöjä viimeiseltä 7 päivältä</span></div>';
@@ -7186,7 +7406,7 @@ async function generateWeeklySummary() {
       await generateEntryBatchSummaries(projectIds[pi]);
     }
     // Hae merkinnät uudelleen päivitetyillä tiivistelmillä
-    merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days')) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
+    merkinnat = query("SELECT m.id, m.tyyppi, m.otsikko, m.paivamaara, m.tagit, m.korjattu, m.tila, m.muokattu, m.ai_tiivistelma, m.projekti_id, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE (m.ai_piilota IS NULL OR m.ai_piilota=0) AND (m.parent_id IS NULL OR m.parent_id='') AND COALESCE(m.tila,'aktiivinen') NOT IN ('vanhentunut','arkistoitu') AND (m.paivamaara >= date('now','-7 days') OR m.luotu >= datetime('now','-7 days')) ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 30");
     byProject = {};
     merkinnat.forEach(function(m) {
       var key = m.projekti_id || '__general__';
@@ -8052,7 +8272,7 @@ function aiBuildPrompt(command) {
 
   // Viimeisimmät merkinnät
   const recentMerkinnat = query("SELECT m.id, m.otsikko, m.tyyppi, m.paivamaara, m.projekti_id, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id " +
-    (scope==='project'&&currentProject ? "WHERE m.projekti_id='"+currentProject+"' " : "") +
+    (scope==='project'&&currentProject ? "WHERE m.projekti_id='"+currentProject+"' AND (m.parent_id IS NULL OR m.parent_id='') " : "WHERE (m.parent_id IS NULL OR m.parent_id='') ") +
     "ORDER BY COALESCE(m.paivamaara, m.luotu) DESC LIMIT 15");
   if (recentMerkinnat.length) {
     ctx += '\nViimeisimmat merkinnat:\n';
@@ -8312,9 +8532,9 @@ function aiExecQuery(type, filter) {
   }
   if (type==='merkinta') {
     let sql = "SELECT m.otsikko, m.tyyppi, m.paivamaara, m.tagit, p.tunnus as projekti, m.korjattu, m.id FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id";
-    const params=[], conds=[];
+    const params=[], conds=["(m.parent_id IS NULL OR m.parent_id='')"];
     if (filter && typeof filter==='object') { for (const [fk,fv] of Object.entries(filter)) { conds.push('m.'+fk+'=?'); params.push(fv); } }
-    if (conds.length) sql += ' WHERE '+conds.join(' AND ');
+    sql += ' WHERE '+conds.join(' AND ');
     return query(sql+' ORDER BY COALESCE(m.paivamaara,m.luotu) DESC LIMIT 100', params);
   }
   let sql = "SELECT * FROM "+type;
@@ -8542,9 +8762,9 @@ function doGlobalSearch(q) {
     });
   }
 
-  // Merkinnät
+  // Merkinnät — kommenttiosumat resoluoidaan päämerkintään parent_id:n kautta
   const merkinnat = query(
-    "SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE LOWER(m.otsikko) LIKE LOWER(?) OR LOWER(m.sisalto) LIKE LOWER(?) OR LOWER(m.tagit) LIKE LOWER(?) ORDER BY m.luotu DESC LIMIT 15",
+    "SELECT m.*, p.tunnus as proj_tunnus, p.nimi as proj_nimi FROM merkinta m LEFT JOIN projekti p ON m.projekti_id=p.id WHERE m.id IN (SELECT DISTINCT COALESCE(NULLIF(parent_id,''), id) FROM merkinta WHERE LOWER(otsikko) LIKE LOWER(?) OR LOWER(sisalto) LIKE LOWER(?) OR LOWER(COALESCE(tagit,'')) LIKE LOWER(?)) ORDER BY m.luotu DESC LIMIT 15",
     [like, like, like]
   );
   if (merkinnat.length) {
