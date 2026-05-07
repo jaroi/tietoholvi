@@ -1528,7 +1528,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 <script>
 "use strict";
 
-const APP_VERSION = '1.9.0';
+const APP_VERSION = '1.9.1';
 let db = null, SQL = null, encryptionKey = null;
 let currentProject = null;  // selected project id
 let expandedKohteet = {};   // kohde id -> true/false
@@ -2834,13 +2834,19 @@ function saveKommentti(parentId, sisalto) {
   var otsikko = plain.slice(0, 80) || '(kommentti)';
   run("INSERT INTO merkinta(id,projekti_id,kohde_id,parent_id,tyyppi,otsikko,sisalto,paivamaara,tila,tulosta,luotu,muokattu)VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
     [id, par[0].projekti_id||null, par[0].kohde_id||null, parentId, 'muistiinpano', otsikko, s, t.slice(0,10), 'aktiivinen', 1, t, t]);
+  // Nullaa pää-merkinnän AI-tiivistelmä, jotta se regeneroituu kommentin huomioiden
+  run("UPDATE merkinta SET ai_tiivistelma=NULL, muokattu=? WHERE id=?", [t, parentId]);
   scheduleSave();
   return id;
 }
 
 function deleteKommentti(id) {
   if (!confirm('Poistetaanko kommentti?')) return;
+  var par = query("SELECT parent_id FROM merkinta WHERE id=?",[id]);
   run("DELETE FROM merkinta WHERE id=?",[id]);
+  if (par.length && par[0].parent_id) {
+    run("UPDATE merkinta SET ai_tiivistelma=NULL, muokattu=? WHERE id=?", [now(), par[0].parent_id]);
+  }
   scheduleSave();
   renderContent();
 }
@@ -2850,7 +2856,11 @@ function updateKommentti(id, sisalto) {
   if (!s) { deleteKommentti(id); return; }
   var plain = s.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
   var otsikko = plain.slice(0, 80) || '(kommentti)';
+  var par = query("SELECT parent_id FROM merkinta WHERE id=?",[id]);
   run("UPDATE merkinta SET otsikko=?, sisalto=?, muokattu=? WHERE id=?", [otsikko, s, now(), id]);
+  if (par.length && par[0].parent_id) {
+    run("UPDATE merkinta SET ai_tiivistelma=NULL, muokattu=? WHERE id=?", [now(), par[0].parent_id]);
+  }
   scheduleSave();
   renderContent();
 }
@@ -7069,6 +7079,21 @@ async function aiCall(prompt) {
   }
 }
 
+function getMerkintaSisaltoForAI(merkintaId, sisalto) {
+  // Palauttaa pää-merkinnän sisällön ja siihen liitetyt kommentit yhtenäisenä tekstinä AI:lle.
+  var content = stripHtml(sisalto || '').trim();
+  var komms = query("SELECT sisalto, luotu FROM merkinta WHERE parent_id=? ORDER BY luotu ASC", [merkintaId]);
+  if (komms.length) {
+    if (content) content += '\n';
+    content += '-- Kommentit (' + komms.length + ') --';
+    komms.forEach(function(k) {
+      var ts = (k.luotu||'').slice(0,16).replace('T',' ');
+      content += '\n[' + ts + '] ' + stripHtml(k.sisalto||'').trim();
+    });
+  }
+  return content;
+}
+
 async function generateEntryBatchSummaries(projektiId) {
   var missing = query("SELECT id, tyyppi, otsikko, sisalto, korjattu, tila FROM merkinta WHERE projekti_id=? AND ai_tiivistelma IS NULL AND (ai_piilota IS NULL OR ai_piilota=0) AND (parent_id IS NULL OR parent_id='') ORDER BY COALESCE(paivamaara,luotu) DESC LIMIT 50", [projektiId]);
   if (!missing.length) return;
@@ -7076,11 +7101,11 @@ async function generateEntryBatchSummaries(projektiId) {
   // Batch max 20 per kutsu
   for (var batchStart = 0; batchStart < missing.length; batchStart += 20) {
     var batch = missing.slice(batchStart, batchStart + 20);
-    var prompt = 'Tiivistä jokainen merkintä yhdeksi lauseeksi suomeksi. Poimi oleellisin fakta. Vastaa VAIN JSON-objektina {"1":"tiivistelmä","2":"tiivistelmä"}.\n\n';
+    var prompt = 'Tiivistä jokainen merkintä yhdeksi lauseeksi suomeksi. Poimi oleellisin fakta. Jos merkinnässä on kommentteja, huomioi nekin. Vastaa VAIN JSON-objektina {"1":"tiivistelmä","2":"tiivistelmä"}.\n\n';
     batch.forEach(function(m, idx) {
       var num = idx + 1;
-      var content = stripHtml(m.sisalto || '').trim();
-      if (content.length > 500) content = content.substring(0, 500) + '...';
+      var content = getMerkintaSisaltoForAI(m.id, m.sisalto);
+      if (content.length > 800) content = content.substring(0, 800) + '...';
       var tila = m.tila || 'aktiivinen';
       var status = tila !== 'aktiivinen' ? ' ['+tilaLabel(tila)+']' : '';
       prompt += '[' + num + '] ' + merkintaLabel(m.tyyppi) + status + ': ' + (m.otsikko || '');
@@ -7114,11 +7139,11 @@ async function regenerateEntrySummaryInEdit(id) {
   var m = query("SELECT id, tyyppi, otsikko, sisalto, korjattu, tila FROM merkinta WHERE id=?", [id]);
   if (!m.length) return;
   m = m[0];
-  var content = stripHtml(m.sisalto || '').trim();
-  if (content.length > 500) content = content.substring(0, 500) + '...';
+  var content = getMerkintaSisaltoForAI(m.id, m.sisalto);
+  if (content.length > 800) content = content.substring(0, 800) + '...';
   var tila = m.tila || 'aktiivinen';
   var status = tila !== 'aktiivinen' ? ' ['+tilaLabel(tila)+']' : '';
-  var prompt = 'Tiivistä tämä merkintä yhdeksi lauseeksi suomeksi. Poimi oleellisin fakta. Vastaa VAIN tiivistelmätekstinä, ei JSON.\n\n';
+  var prompt = 'Tiivistä tämä merkintä yhdeksi lauseeksi suomeksi. Poimi oleellisin fakta. Jos merkinnässä on kommentteja, huomioi nekin. Vastaa VAIN tiivistelmätekstinä, ei JSON.\n\n';
   prompt += merkintaLabel(m.tyyppi) + status + ': ' + (m.otsikko || '') + '\n' + content;
   try {
     toast('Luodaan tiivistelmää...', 'info');
